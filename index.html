@@ -2981,28 +2981,29 @@ function spAsk(need,match,files){files=files||[];return new Promise(res=>{const 
   ${need.size?`<p style="margin-top:10px"><b>${need.size} new folder${need.size>1?'s':''} will be created</b></p><div class="hint" style="max-height:200px;overflow:auto">${[...need].map(p=>esc(rel(p))).join('<br>')}</div>`:''}
   <div style="margin-top:12px;display:flex;gap:8px"><button class="btn pri" id="spYes">Approve and upload</button><button class="btn" id="spNo">Not now</button></div>`,null);
  $('#spYes',o).onclick=()=>{o.remove();res(true)};$('#spNo',o).onclick=()=>{o.remove();res(false)}})}
-async function spSync(interactive,quiet){if(!spOn()||SPX.busy)return;if(!spUserFolder()){if(!interactive||!await spPickUser(false))return}SPX.busy=true;const st=spSt();let up=0,err=0;
+async function spSync(interactive,quiet,auto){if(!spOn()||SPX.busy)return;if(!spUserFolder()){if(!interactive||!await spPickUser(false))return}SPX.busy=true;const st=spSt();let up=0,err=0;
  try{if(!st.baseline){spItems().forEach(x=>st.done[x.id]='existing');st.baseline=new Date().toISOString();st.pending=0;save0()}
   SPX.kids={};let ids=new Set();try{ids=new Set((await IDB.all()).map(f=>f.id))}catch(_){}const I=spItems().filter(x=>ids.has(x.id));if(!I.length){if(st.pending){st.pending=0;save0()}if(interactive&&!quiet)toast('SharePoint: everything is up to date');return}
   const need=new Set(),plan=[];for(const it of I)plan.push({it,path:await spResolve(spSegs(it),need)});
   if(!interactive){st.pending=plan.length;save0();renderSpBadge();return}
   {const match=[...new Set(Object.values(st.paths))].filter(p=>p.split('/').length===2);const rel=x=>x.slice(SP_CFG.root.length+1);
-   if(!await spAsk(need,match,plan.map(({it,path})=>rel(path)+'/'+(it.name||'file')))){st.pending=plan.length;save0();renderSpBadge();toast('Nothing uploaded');return}if(need.size)await spCreate(need)}
+   if(!auto&&!await spAsk(need,match,plan.map(({it,path})=>rel(path)+'/'+(it.name||'file')))){st.pending=plan.length;save0();renderSpBadge();toast('Nothing uploaded');return}if(need.size)await spCreate(need)}
   for(const {it,path} of plan){try{const f=await IDB.get(it.id);const blob=f&&spB64(f.data);if(!blob)continue;
     let nm=it.name||f.name||('file-'+it.id);if(it.area==='tenant'&&it.kind&&/^(file-|image|img|photo|scan|whatsapp|\d)/i.test(nm))nm=it.kind+' - '+(it.tenant||'')+' - '+nm;const r=await spPut(path,nm,blob);st.done[it.id]=(r&&r.webUrl)||'ok';up++;actLog('Uploaded to SharePoint: '+path.slice(SP_CFG.root.length+1)+'/'+(it.name||f.name||''),it.propId)}catch(e){console.error(e);err++}}
   st.pending=0;st.last=new Date().toISOString();save0();toast('SharePoint: '+up+' file'+(up===1?'':'s')+' uploaded'+(err?' · '+err+' failed':''))}
  catch(e){console.error(e);toast(e.message||'SharePoint sync failed')}finally{SPX.busy=false;renderSpBadge()}}
 /* Excel / Word / backup copies */
 async function spSaveFile(area,name,blob,o={}){if(!spOn())return;if(!spUserFolder()&&!await spPickUser(false))return;try{const need=new Set(),path=await spResolve(spSegs({propId:o.propId||S.cur,area,supplier:o.supplier}),need);
-  if(!await spAsk(need,[],[path.slice(SP_CFG.root.length+1)+'/'+name]))return;if(need.size)await spCreate(need);const r=await spPut(path,name,blob);actLog('Saved to SharePoint: '+path.slice(SP_CFG.root.length+1)+'/'+name,o.propId||S.cur);save0();
+  if(!spSt().auto&&!await spAsk(need,[],[path.slice(SP_CFG.root.length+1)+'/'+name]))return;if(need.size)await spCreate(need);const r=await spPut(path,name,blob);actLog('Saved to SharePoint: '+path.slice(SP_CFG.root.length+1)+'/'+name,o.propId||S.cur);save0();
   const m=modal(`<h3>Saved to SharePoint</h3><p class="hint">${esc(path.slice(SP_CFG.root.length+1)+'/'+name)}</p>${r&&r.webUrl?`<a class="btn pri" href="${esc(r.webUrl)}" target="_blank" rel="noopener">Open${/\.xlsx$/i.test(name)?' in Excel Online':''}</a>`:''}`,null)}catch(e){console.error(e);toast(e.message||'Could not save to SharePoint')}}
 let save0=()=>{};
 function renderSpBadge(){const e=document.getElementById('spBadge');if(e)e.innerHTML=spBadgeHtml()}
 function spSkipOld(){const st=spSt();spItems().forEach(x=>st.done[x.id]='existing');st.baseline=st.baseline||new Date().toISOString();st.pending=0;save0();renderSpBadge();toast('Old documents skipped — only new uploads will go to SharePoint')}
 function spBadgeHtml(){const st=spSt();return spOn()?`Connected as <b>${esc(SPX.acct.username||'')}</b> · your folder: <b>${esc(spUserFolder()||'not chosen')}</b> <button class="btn sm" onclick="spPickUser(true)">Change</button>${st.last?' · last upload '+fd(st.last.slice(0,10)):''}${st.pending?` · <span style="color:var(--red)">${st.pending} file(s) waiting for your approval</span> <button class="btn sm pri" onclick="spSync(true)">Review</button> <button class="btn sm" onclick="spSkipOld()">Skip old documents (upload only new)</button>`:''}`:'Not connected'}
 function spCard(){return `<div class="card"><b>SharePoint</b><p class="hint" style="margin:6px 0">Files go to: ${esc(SP_CFG.host+SP_CFG.site)} › ${esc(SP_CFG.root)}</p><div id="spBadge" class="hint">${spBadgeHtml()}</div>
+ <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" style="width:auto" ${spSt().auto?'checked':''} onchange="spSt().auto=this.checked;save0();toast(this.checked?'SharePoint: new documents upload automatically':'SharePoint: you approve every upload')"> Upload new documents to SharePoint automatically (no approval box)</label>
  <div style="margin-top:8px;display:flex;gap:8px">${spOn()?'<button class="btn pri" onclick="spSync(true)">Review and upload</button><button class="btn" onclick="spSignOut()">Sign out</button>':'<button class="btn pri" onclick="spConnect()">Connect to SharePoint</button>'}</div></div>`}
-(function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(true,true),1500)}};
+(function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(true,true,!!spSt().auto),1500)}};
  const sx=saveXlsx;saveXlsx=async function(z,name){await sx(z,name);if(spOn())spSaveFile('excel',name,await z.generateAsync({type:'blob',compression:'DEFLATE'}))};
  const wx=()=>{if(window.XLSX&&!XLSX._spw){const w=XLSX.writeFile;XLSX.writeFile=function(wb,name,opt){const r=w.call(XLSX,wb,name,opt);if(spOn())spSaveFile('excel',name,new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})]));return r};XLSX._spw=1}};wx();setTimeout(wx,3000);
  if(location.protocol!=='file:'&&!(window.opener&&window.opener!==window))spInit().then(async()=>{if(SPX.acct){try{const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;render();spSync(false)}catch(e){console.error(e)}}}).catch(()=>{})})();
@@ -3637,6 +3638,7 @@ const TH146={"units":[],"tenants":[]};
  (S.mrcpts||[]).forEach(r=>{if(+r.no<1000000){const old=String(r.no);r.no=String(1000000+ +r.no);(S.expenses||[]).forEach(e=>{if(e.mrId===r.id&&e.invNo==='Receipt '+old)e.invNo='Receipt '+r.no})}});
  if(S.settings.mrNext&&S.settings.mrNext<1000000)S.settings.mrNext+=1000000;S.settings._mr1000=1;save()})();
 (function migrateOwnerDocs(){try{let ch=0;(S.docsLib||[]).forEach(d=>{if(d.area==='legal'){d.area='owner';d.sub=ownerFolder(d.kind);ch=1}});if(ch)save()}catch(_){}})();
+(function spAutoOn1911(){S.settings=S.settings||{};if(S.settings._spauto)return;const st=S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}};st.auto=true;S.settings._spauto=1;save()})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
