@@ -2793,11 +2793,11 @@ async function mrDocx(r){try{const z=await JSZip.loadAsync(tplBytes('a_tpl_mr'))
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Maintenance receipt '+r.no+' - '+r.building+' - '+r.flat+'.docx';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)
  }catch(e){console.error(e);toast('Could not create the Word file')}}
 function vExp(){
- $('#main').innerHTML=topbar('Maintenance & Expenses',`<button class="btn pri" id="eAdd">+ Add expense</button><button class="btn" id="eMr">+ Maintenance receipt</button><button class="btn" id="eCopy">Copy for Excel</button><button class="btn" id="eExp">Export Excel</button>`)+`
+ $('#main').innerHTML=topbar('Maintenance & Expenses',`<button class="btn pri" id="eAdd">+ Add expense</button><button class="btn" id="eMr">+ Maintenance receipt</button><button class="btn" id="eMrI">Import receipts folder</button><button class="btn" id="eCopy">Copy for Excel</button><button class="btn" id="eExp">Export Excel</button>`)+`
  <div class="bar"><input type="search" id="eqi" placeholder="Search unit, description, vendor, invoice…" value="${esc(eq)}"><select id="ecs" style="width:auto"><option value="">All categories</option><option value="__m" ${ec==='__m'?'selected':''}>All maintenance</option><option value="__o" ${ec==='__o'?'selected':''}>All other expenses</option>${EXP_CATS.map(c=>`<option ${c===ec?'selected':''}>${esc(c)}</option>`).join('')}</select>
   <div><label>From</label><input type="date" id="efi" value="${ef}" style="width:auto"></div><div><label>To</label><input type="date" id="eti" value="${et}" style="width:auto"></div></div>
  <div class="stats" id="eSum"></div><div class="tw"><table class="t" id="et"></table></div>${mrList()}`;
- bindTop();$('#eMr').onclick=()=>mrForm();$('#main').addEventListener('click',e=>{const b=e.target.closest('[data-mrd]');if(b){const r=(S.mrcpts||[]).find(x=>x.id===b.dataset.mrd);if(r)mrDocx(r)}});
+ bindTop();$('#eMr').onclick=()=>mrForm();$('#eMrI').onclick=mrImport;$('#main').addEventListener('click',e=>{const b=e.target.closest('[data-mrd]');if(b){const r=(S.mrcpts||[]).find(x=>x.id===b.dataset.mrd);if(r)mrDocx(r)}});
  const draw=()=>{const E=expList(),tot=E.reduce((a,e)=>a+expTotal(e),0),m=E.filter(e=>isMaint(e.category)).reduce((a,e)=>a+expTotal(e),0),pend=E.filter(e=>e.status==='Pending').reduce((a,e)=>a+expTotal(e),0);
   $('#eSum').innerHTML=`<div class="stat"><b>${fa2(tot)}</b><span>Total</span></div><div class="stat"><b>${fa2(m)}</b><span>Maintenance</span></div><div class="stat"><b>${fa2(tot-m)}</b><span>Other expenses</span></div><div class="stat"><b>${fa2(pend)}</b><span>Pending payment</span></div>`;
   $('#et').innerHTML='<tr><th>Date</th><th>Unit</th><th>Category</th><th>Description</th><th>Vendor</th><th>Invoice no</th><th class="r">Amount</th><th class="r">VAT</th><th class="r">Total</th><th>Paid by</th><th>Method</th><th>Status</th><th>Files</th><th></th></tr>'+
@@ -3143,6 +3143,40 @@ function vOwner(){const p=prop(),D=(S.docsLib||[]).filter(d=>d.propId===p.id&&d.
   drawQ()};
  $('#main').onclick=async e=>{const b=e.target.closest('[data-open]');if(b){const f=await IDB.get(b.dataset.open);if(!f){toast('File not found on this computer');return}const w=window.open();if(w)w.document.write(`<iframe src="${f.data}" style="border:0;width:100%;height:100%"></iframe>`)}};
  $('#main').onchange=e=>{const s=e.target.closest('[data-mv]');if(s){const d=S.docsLib.find(x=>x.id===s.dataset.mv);d.kind=s.value;d.sub=ownerFolder(s.value);save();vOwner()}}}
+/* ================= Import maintenance receipts from a folder (unit / receipt no / receipt.docx + photos) ================= */
+async function mrParseDocx(blob){const z=await JSZip.loadAsync(blob);const x=await z.file('word/document.xml').async('string');
+ const cell=c=>(c.match(/<w:p[ >][\s\S]*?<\/w:p>/g)||[]).map(p=>(p.match(/<w:t[^>]*>([^<]*)<\/w:t>/g)||[]).map(t=>t.replace(/<[^>]+>/g,'')).join('')).join(' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+ const rows=(x.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g)||[]).map(r=>(r.match(/<w:tc>[\s\S]*?<\/w:tc>/g)||[]).map(cell));
+ const num=s=>{const v=String(s||'').replace(/[^0-9.]/g,'');return v===''?'':+v};const r={lines:[]};
+ rows.forEach(c=>{const k=(c[0]||'').toUpperCase();
+  if(k==='BUILDING'){r.building=c[1];const m=String(c[3]||'').replace(/\s/g,'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)r.date=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`}
+  else if(k.startsWith('FLAT')){r.flat=String(c[1]||'').replace(/\s/g,'');r.no=String(c[3]||'').replace(/\D/g,'')}
+  else if(/^\d+$/.test(k)&&c.length>=7){if(c[1]||c[6])r.lines.push({desc:c[1],ft:c[2],act:c[3],q:c[4],qty:c[5],ch:num(c[6])===''?'':String(num(c[6])),uc:c[7]||'',cm:c[8]||''})}
+  else if(k==='SUBTOTAL')r.sub=num(c[1]);else if(/^VAT/.test(k))r.vat=num(c[1]);else if(/GRAND TOTAL/.test(k))r.total=num(c[1])});
+ if(r.sub===''||r.sub==null)r.sub=r.lines.reduce((a,l)=>a+(+l.ch||0),0);if(r.vat===''||r.vat==null)r.vat=Math.round(r.sub*5)/100;if(r.total===''||r.total==null)r.total=Math.round((+r.sub+ +r.vat)*100)/100;return r}
+function mrImport(){const inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.webkitdirectory=true;
+ inp.onchange=async()=>{const F=[...inp.files];if(!F.length)return;const G={};
+  F.forEach(f=>{const parts=(f.webkitRelativePath||f.name).split('/');const dir=parts.slice(0,-1).join('/');(G[dir]=G[dir]||[]).push(f)});
+  const R=[];let k=0;const dirs=Object.keys(G).filter(d=>G[d].some(f=>/\.docx$/i.test(f.name)));
+  for(const d of dirs){k++;toast('Reading '+k+' / '+dirs.length+'…');const docx=G[d].find(f=>/\.docx$/i.test(f.name)&&!/^~\$/.test(f.name));if(!docx)continue;
+   let r;try{r=await mrParseDocx(docx)}catch(e){R.push({dir:d,err:'Could not read '+docx.name});continue}
+   const parts=d.split('/');if(!r.flat)r.flat=parts[parts.length-2]||'';if(!r.no)r.no=(parts[parts.length-1]||'').replace(/\D/g,'');
+   r.files=G[d].filter(f=>/\.(docx|jpe?g|png|webp|heic|pdf)$/i.test(f.name));r.dir=d;r.dup=(S.mrcpts||[]).some(x=>x.propId===S.cur&&String(x.no)===String(r.no));R.push(r)}
+  mrImportReview(R)};inp.click()}
+function mrCheck(r){const s=Math.round(r.lines.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,w=[];if(s!==Math.round(+r.sub*100)/100)w.push('rows add up to '+fa(s)+', subtotal says '+fa(r.sub));if(Math.round((+r.sub+ +r.vat)*100)/100!==Math.round(+r.total*100)/100)w.push('subtotal + VAT = '+fa(+r.sub+ +r.vat)+', total says '+fa(r.total));return w.length?`<span style="color:var(--red)">⚠ ${esc(w.join('; '))}</span>`:''}
+function mrImportReview(R){const ok=R.filter(r=>!r.err&&!r.dup),p=prop();const o=modal(`<h3>Import maintenance receipts — ${esc(p.short||p.no)}</h3>
+ <p class="hint">${ok.length} new receipt${ok.length===1?'':'s'} · ${R.filter(r=>r.dup).length} already in the app (skipped) · ${R.filter(r=>r.err).length} could not be read. Photos and the Word file are attached to each receipt.</p>
+ <div class="tw" style="max-height:420px;overflow:auto"><table class="t"><tr><th>Receipt</th><th>Date</th><th>Flat</th><th>Work</th><th class="r">Subtotal</th><th class="r">VAT</th><th class="r">Total</th><th>Files</th><th></th></tr>
+ ${R.map(r=>r.err?`<tr><td colspan=9 style="color:var(--red)">${esc(r.dir)} – ${esc(r.err)}</td></tr>`:`<tr${r.dup?' style="opacity:.45"':''}><td>${esc(r.no)}</td><td>${r.date?fd(r.date):'<span style="color:var(--red)">no date</span>'}</td><td>${esc(r.flat)}</td><td>${esc(r.lines.map(l=>l.desc).join(', ').slice(0,90))}</td><td class="r">${fa(r.sub)}</td><td class="r">${fa(r.vat)}</td><td class="r">${fa(r.total)}</td><td>${r.files.length}</td><td>${r.dup?'already in app':mrCheck(r)}</td></tr>`).join('')}</table></div>
+ <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="miSp" checked style="width:auto"> These files are already in SharePoint — save in the app only (do not upload)</label>
+ <div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" id="miOk" ${ok.length?'':'disabled'}>Import ${ok.length} receipt${ok.length===1?'':'s'}</button></div>`,null);
+ $('#miOk',o).onclick=async()=>{const inSp=$('#miSp',o).checked;const b=$('#miOk',o);b.disabled=true;S.mrcpts=S.mrcpts||[];S.expenses=S.expenses||[];let n=0,i=0;
+  for(const r of ok){i++;b.textContent='Importing '+i+' / '+ok.length+'…';const ids=[];
+   for(const f of r.files){const id=uid();try{const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});await IDB.put({id,docFile:true,name:f.name,type:f.type||(/\.docx$/i.test(f.name)?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'image/jpeg'),data});ids.push(id);if(inSp&&typeof spSt==='function')spSt().done[id]='existing'}catch(_){}}
+   const rec={id:uid(),propId:S.cur,no:String(r.no),building:r.building||'',date:r.date||'',flat:r.flat,lines:r.lines,sub:+r.sub||0,vat:+r.vat||0,total:+r.total||0,created:Date.now(),files:ids,imported:true};
+   S.mrcpts.push(rec);S.expenses.push({id:uid(),propId:S.cur,date:rec.date,unit:rec.flat,category:'Maintenance – General',desc:rec.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+rec.no,amount:rec.sub,vat:rec.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:ids,mrId:rec.id});n++}
+  const mx=Math.max(0,...S.mrcpts.map(x=>+x.no||0));if(mx>=(+S.settings.mrNext||1000582))S.settings.mrNext=mx+1;
+  save();o.remove();render();toast(n+' maintenance receipt'+(n===1?'':'s')+' imported')}}
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
