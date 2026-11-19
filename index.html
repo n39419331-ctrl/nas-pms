@@ -1131,12 +1131,12 @@ function printHTML(html,page){$('#pageStyle').textContent='@page{size:'+page+';m
   setTimeout(()=>{window.print();setTimeout(()=>{document.body.classList.remove('printing');$('#printArea').innerHTML=''},300)},150)}
 
 /* ---------- navigation ---------- */
-const ICONS={"docs": "<path d=\"M7 3h7l5 5v13H7z\"/><path d=\"M14 3v5h5M10 13h6M10 17h6\"/>", "act": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/>", "xl": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"1.5\"/><path d=\"M4 9h16M4 14h16M10 4v16\"/>", "dash": "<path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "units": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"1.5\"/><path d=\"M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2\"/>", "ten": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5\"/><path d=\"M16 4.6a3.4 3.4 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.4 3.5 5.2\"/>", "rcpt": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"/><path d=\"M9 8h6M9 12h6\"/>", "chq": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18M7 15h4\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
+const ICONS={"own": "<circle cx=\"12\" cy=\"8\" r=\"3.5\"/><path d=\"M5 20c1-4 4-6 7-6s6 2 7 6\"/>", "docs": "<path d=\"M7 3h7l5 5v13H7z\"/><path d=\"M14 3v5h5M10 13h6M10 17h6\"/>", "act": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/>", "xl": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"1.5\"/><path d=\"M4 9h16M4 14h16M10 4v16\"/>", "dash": "<path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "units": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"1.5\"/><path d=\"M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2\"/>", "ten": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5\"/><path d=\"M16 4.6a3.4 3.4 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.4 3.5 5.2\"/>", "rcpt": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"/><path d=\"M9 8h6M9 12h6\"/>", "chq": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18M7 15h4\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
 ICONS.inv='<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/>';
 ICONS.exp='<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.6-.6-2.1z"/>';
 ICONS.tax='<path d="M5 19L19 5"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/>';
 ICONS.stmt='<path d="M12 3v18M16 7.5c-.6-1.2-2-2-4-2-2.4 0-4 1.2-4 3s1.5 2.5 4 3 4 1.2 4 3-1.7 3-4 3c-2.2 0-3.7-.9-4.2-2.3"/>';
-const TABS=[['dash','Dashboard'],['units','Property List'],['ten','Tenants'],['rcpt','Receipts'],['inv','Invoices'],['stmt','Rent Collection'],['chq','Cheques'],['exp','Maintenance & Expenses'],['tax','VAT / Tax'],['docs','Documents'],['xl','Excel'],['act','Activity'],['set','Settings']];
+const TABS=[['dash','Dashboard'],['units','Property List'],['ten','Tenants'],['rcpt','Receipts'],['inv','Invoices'],['stmt','Rent Collection'],['chq','Cheques'],['exp','Maintenance & Expenses'],['tax','VAT / Tax'],['docs','Documents'],['own','Owner'],['xl','Excel'],['act','Activity'],['set','Settings']];
 let tab='dash';
 function go(t){if(t==='rcpt'&&tab!=='rcpt'&&!(draft&&draft.editId))draft=null;tab=t;render()}
 function render(){
@@ -1145,7 +1145,7 @@ function render(){
   $('#nav').innerHTML=TABS.filter(([k])=>k!=='inv'||prop().invoices).map(([k,l])=>`<a class="${k===tab?'on':''}" data-t="${k}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span>${l}</span></a>`).join('');
   $('#nav').onclick=e=>{const a=e.target.closest('a');if(a)go(a.dataset.t)};
   $('#main').onclick=null;
-  ({dash:vDash,units:vUnits,ten:vTen,rcpt:vRcpt,inv:vInv,stmt:vStmt,chq:vChq,exp:vExp,tax:vTax,docs:vDocs,xl:vXl,act:vAct,set:vSet})[tab]();
+  ({dash:vDash,units:vUnits,ten:vTen,rcpt:vRcpt,inv:vInv,stmt:vStmt,chq:vChq,exp:vExp,tax:vTax,docs:vDocs,own:vOwner,xl:vXl,act:vAct,set:vSet})[tab]();
 }
 function topbar(title,extra=''){const opts=S.properties.map(p=>`<option value="${esc(p.id)}" ${p.id===S.cur?'selected':''}>${esc(p.no)}${p.landlord?' — '+esc(p.landlord):''}</option>`).join('');
   return `<div class="top"><h1>${title}</h1><div style="min-width:240px"><select id="propSel">${opts}</select></div>${extra}</div>`}
@@ -2947,7 +2947,7 @@ function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||
  if(o.area==='tenant')return [...B,{label:'Tenants',tokens:['tenant']},{label:spClean(o.unit+' - '+(o.tenant||'')),tokens:[String(o.unit)]},{label:o.sub,tokens:[]}];
  if(o.area==='maint')return [...B,{label:'Maintenance',tokens:['maintenance']},{label:spClean(o.supplier||'General'),tokens:spNorm(o.supplier||'general').split(' ').slice(0,2)}];
  if(o.area==='other')return [...B,{label:'Other documents',tokens:['other']}];
- if(o.area==='legal')return [...B,/attorney/i.test(o.sub||'')?{label:'Power of attorney (وكالات)',tokens:['attorney'],alt:['وكالات','وكالة']}:{label:'Ownership & site plans',tokens:['site','plan'],alt:['ownership','مخطط']}];
+ if(o.area==='owner'){const s=o.sub||'Other';return [...B,{label:'Owner',tokens:['owner'],alt:['المالك','landlord']},/attorney/i.test(s)?{label:'Power of attorney (وكالات)',tokens:['attorney'],alt:['وكالات','وكالة']}:/site plan|ownership/i.test(s)?{label:'Ownership & site plans',tokens:['site','plan'],alt:['ownership','مخطط']}:{label:s,tokens:[]}]}
  if(o.area==='excel')return [...B,{label:'Excel reports',tokens:['excel']}];
  return [...B,{label:'Backups',tokens:['backup']}]}
 /* resolve a segment list to a path; collects folders that would need creating */
@@ -2964,7 +2964,7 @@ function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,..
  (S.receipts||[]).forEach(r=>(r.files||[]).forEach(id=>add(id,{propId:r.propId,area:'tenant',unit:r.unit,tenant:tn(r.propId,r.unit,r.payer),sub:'Cheques & receipts'})));
  (S.cheques||[]).forEach(c=>[...(c.files||[]),...(c.depFiles||[])].forEach(id=>add(id,{propId:c.propId,area:'tenant',unit:c.unit,tenant:tn(c.propId,c.unit,c.payer),sub:'Cheques & receipts'})));
  (S.expenses||[]).forEach(e=>(e.files||[]).forEach(id=>add(id,{propId:e.propId,area:'maint',supplier:e.vendor||'General'})));
- (S.docsLib||[]).forEach(d=>add(d.id,{propId:d.propId,area:d.area==='maint'?'maint':d.area==='legal'?'legal':'other',supplier:d.supplier||'General',sub:d.sub,name:d.name}));
+ (S.docsLib||[]).forEach(d=>add(d.id,{propId:d.propId,area:d.area==='maint'?'maint':(d.area==='owner'||d.area==='legal')?'owner':'other',supplier:d.supplier||'General',sub:d.sub,name:d.name}));
  return I.filter(x=>x.propId&&(x.area!=='tenant'||x.unit))}
 async function spCreate(paths){for(const full of [...paths].sort((a,b)=>a.split('/').length-b.split('/').length)){const i=full.lastIndexOf('/'),par=full.slice(0,i),nm=full.slice(i+1);
   const ex=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(full));if(ex)continue;
@@ -3042,7 +3042,7 @@ function vAct(){const L=(S.activity||[]).slice().reverse().filter(a=>(actP==='al
  <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
  bindTop();$('#aq').oninput=e=>{actQ=e.target.value;const ps=e.target.selectionStart;vAct();const i=$('#aq');i.focus();i.setSelectionRange(ps,ps)};$('#ap').onchange=e=>{actP=e.target.value;vAct()};$('#af').onchange=e=>{actFrom=e.target.value;vAct()};$('#at').onchange=e=>{actTo=e.target.value;vAct()}}
 /* ================= Documents — upload any document; the app reads it and files it in the right place ================= */
-const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Power of attorney','legal'],['Land site plan / title deed','legal'],['Other building document','other']];
+const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Power of attorney','owner'],['Land site plan / title deed','owner'],['Owner ID / passport','owner'],['Owner agreement / contract','owner'],['Other building document','other']];
 const docArea=k=>(DOC_TYPES.find(x=>x[0]===k)||[,'other'])[1];
 let DOCQ=[];
 async function docText(f){let txt='';
@@ -3077,10 +3077,10 @@ function docSupplier(t){const U=t.toUpperCase();const V=[...new Set((S.expenses|
  const m=t.replace(/\s+/g,' ').match(/([A-Z][A-Za-z&.'\- ]{2,50}?\b(?:L\.?\s?L\.?\s?C\.?|TRADING|CONTRACTING|SERVICES|MAINTENANCE|ELECTRICAL|ELECTROMECHANICAL|EST\.?|ESTABLISHMENT))(?![A-Za-z])/);return m?m[1].trim():''}
 function docTenantOpts(pid,sel){return '<option value="">— choose tenant —</option>'+S.tenants.filter(t=>t.propId===pid).sort((a,b)=>String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true})).map(t=>`<option value="${t.id}" ${t.id===sel?'selected':''}>${esc(t.unit)} – ${esc(t.name)}${tenantCurrent(t)?'':' (old)'}</option>`).join('')}
 function docDest(d){const p=S.properties.find(x=>x.id===d.propId)||{},b='Building '+(p.short||p.no||''),uf=(typeof spUserFolder==='function'&&spUserFolder())||'Your folder';const t=S.tenants.find(x=>x.id===d.tid);
- const a=docArea(d.type);return a==='tenant'?(t?`${uf} › ${b} › Tenant › ${t.unit} - ${t.name} › ${spKind(d.type)}`:'choose a tenant'):a==='maint'?`${uf} › ${b} › Maintenance › ${d.supplier||'General'}`:a==='legal'?`${uf} › ${b} › ${docLegalFolder(d.type)}`:`${uf} › ${b} › Other documents`}
+ const a=docArea(d.type);return a==='tenant'?(t?`${uf} › ${b} › Tenant › ${t.unit} - ${t.name} › ${spKind(d.type)}`:'choose a tenant'):a==='maint'?`${uf} › ${b} › Maintenance › ${d.supplier||'General'}`:a==='owner'?`${uf} › ${b} › Owner › ${ownerFolder(d.type)}`:`${uf} › ${b} › Other documents`}
 function docLegalFolder(k){return /attorney/i.test(k)?'Power of attorney (وكالات)':'Ownership & site plans'}
 function vDocs(){const recent=[];S.tenants.forEach(t=>(t.docs||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===t.propId)||{}).short+' · '+t.unit+' – '+t.name,id:d.id})));
- (S.docsLib||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===d.propId)||{}).short+' · '+(d.area==='maint'?'Maintenance – '+(d.supplier||'General'):d.area==='legal'?d.sub:'Other documents'),id:d.id}));
+ (S.docsLib||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===d.propId)||{}).short+' · '+(d.area==='maint'?'Maintenance – '+(d.supplier||'General'):d.area==='owner'?'Owner – '+d.sub:'Other documents'),id:d.id}));
  recent.sort((a,b)=>b.at-a.at);const sp=typeof spSt==='function'?spSt().done:{};
  $('#main').innerHTML=topbar('Documents')+`<div class="card"><b>Upload documents</b><p class="hint" style="margin:6px 0 10px">Select any documents or a .zip (Emirates ID, passport, tenancy contract, cheque, supplier invoice, power of attorney, site plan …). The app reads each one, finds the tenant or supplier, and shows where it will go. Nothing is saved until you click <b>Approve and save</b>.</p>
   <input type="file" id="dF" multiple accept="image/*,.pdf,.zip"><div id="dSt" class="hint" style="margin-top:8px"></div><div id="dQ"></div></div>
@@ -3111,8 +3111,38 @@ function drawDocQ(){const box=$('#dQ');if(!box)return;if(!DOCQ.length){box.inner
  $('#dOk').onclick=async()=>{const bad=DOCQ.find(d=>docArea(d.type)==='tenant'&&!d.tid);if(bad){toast('Choose the tenant for '+bad.name);return}
   const inSp=$('#dInSp')&&$('#dInSp').checked;let n=0;for(const d of DOCQ){const id=uid();if(inSp&&typeof spSt==='function')spSt().done[id]='existing';try{await IDB.put({id,docFile:true,name:d.name,type:d.ftype,data:d.data})}catch(_){toast('Could not save '+d.name);continue}
    if(docArea(d.type)==='tenant'){const t=S.tenants.find(x=>x.id===d.tid);t.docs=t.docs||[];t.docs.push({id,name:d.name,type:d.ftype,size:d.size,kind:d.type==='Other tenant document'?'other':d.type,added:Date.now()})}
-   else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',sub:docArea(d.type)==='legal'?docLegalFolder(d.type):'',name:d.name,kind:d.type,added:Date.now()})}n++}
+   else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',sub:docArea(d.type)==='owner'?ownerFolder(d.type):'',name:d.name,kind:d.type,added:Date.now()})}n++}
   DOCQ=[];save();toast(n+' document'+(n===1?'':'s')+' saved');vDocs()}}
+/* ================= Owner — landlord details, owner documents and cash handed to the owner ================= */
+const OWNER_TYPES=['Power of attorney','Land site plan / title deed','Owner ID / passport','Owner agreement / contract','Other owner document'];
+function ownerFolder(k){return /attorney/i.test(k)?'Power of attorney (وكالات)':/site plan|title deed/i.test(k)?'Ownership & site plans':/id|passport/i.test(k)?'Owner ID':/agreement|contract/i.test(k)?'Agreements':'Other'}
+function vOwner(){const p=prop(),D=(S.docsLib||[]).filter(d=>d.propId===p.id&&d.area==='owner').sort((a,b)=>(b.added||0)-(a.added||0));
+ const R=(S.receipts||[]).filter(r=>r.propId===p.id&&/^owner$/i.test(String(r.unit||'').trim())).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+ const sp=typeof spSt==='function'?spSt().done:{},tot=R.filter(r=>!r.void).reduce((a,r)=>a+r.lines.reduce((s,l)=>s+(+l.amount||0),0),0);
+ const groups=OWNER_TYPES.map(k=>[k,D.filter(d=>d.kind===k)]).filter(g=>g[1].length);
+ $('#main').innerHTML=topbar('Owner')+`<div class="card"><b>Owner (landlord)</b><div class="grid g3" style="margin-top:8px"><div><label>Name</label><div>${esc(p.landlord||'—')}</div></div><div><label>Building</label><div>${esc(p.no||p.short||'')}</div></div><div><label>Location</label><div>${esc(p.location||'—')}</div></div></div></div>
+ <div class="card"><b>Add owner documents</b><p class="hint" style="margin:6px 0">Select files or a .zip. Choose the type for each, then save. Nothing goes to SharePoint without your approval.</p>
+  <input type="file" id="oF" multiple accept="image/*,.pdf,.zip"><div id="oQ"></div></div>
+ <div class="card"><b>Owner documents</b> <span class="hint">${D.length} file${D.length===1?'':'s'}</span>${groups.map(([k,L])=>`<h4 style="margin:12px 0 4px">${esc(k)}</h4><div class="tw"><table class="t"><tr><th>Document</th><th>Added</th><th>SharePoint</th><th></th></tr>${L.map(d=>`<tr><td>${esc(d.name)}</td><td>${d.added?fd(new Date(d.added).toISOString().slice(0,10)):''}</td><td>${sp[d.id]&&sp[d.id]!=='existing'?'<span class="tag grn">Uploaded</span>':sp[d.id]==='existing'?'Already there':'<span class="hint">waiting</span>'}</td><td style="white-space:nowrap"><button class="btn sm" data-open="${d.id}">Open</button> <select data-mv="${d.id}" class="sm">${OWNER_TYPES.map(t=>`<option ${t===d.kind?'selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}</table></div>`).join('')||'<p class="hint">No owner documents yet.</p>'}</div>
+ <div class="card"><b>Cash handed to the owner</b> <span class="hint">${R.length} receipt${R.length===1?'':'s'} · total AED ${fa(tot)}</span><div class="tw" style="margin-top:8px"><table class="t"><tr><th>Receipt</th><th>Date</th><th>Description</th><th class="r">Amount</th></tr>${R.map(r=>`<tr${r.void?' style="opacity:.5"':''}><td>${esc(r.no)}${r.void?' (void)':''}</td><td>${fd(r.date)}</td><td>${esc(r.lines.map(l=>l.desc).join(', '))}</td><td class="r">${fa(r.lines.reduce((s,l)=>s+(+l.amount||0),0))}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No owner receipts yet (Receipts → unit “Owner”).</td></tr>'}</table></div></div>`;
+ bindTop();let Q=[];
+ const drawQ=()=>{const box=$('#oQ');if(!Q.length){box.innerHTML='';return}
+  box.innerHTML=`<div class="tw" style="margin-top:10px"><table class="t"><tr><th>File</th><th>Type</th><th>Will be filed in</th><th></th></tr>${Q.map((q,i)=>`<tr><td>${esc(q.name)}</td><td><select data-qt="${i}">${OWNER_TYPES.map(t=>`<option ${t===q.type?'selected':''}>${t}</option>`).join('')}</select></td><td class="hint">${esc(((typeof spUserFolder==='function'&&spUserFolder())||'Your folder')+' › Building '+(p.short||p.no)+' › Owner › '+ownerFolder(q.type))}</td><td><button class="btn sm danger" data-qx="${i}">✕</button></td></tr>`).join('')}</table></div>
+  <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="oInSp" style="width:auto"> These files are already in SharePoint — save in the app only (do not upload)</label>
+  <div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" id="oOk">Save ${Q.length} file${Q.length===1?'':'s'}</button><button class="btn" id="oClr">Clear</button></div>`;
+  box.querySelectorAll('[data-qt]').forEach(s=>s.onchange=()=>{Q[+s.dataset.qt].type=s.value;drawQ()});box.querySelectorAll('[data-qx]').forEach(b=>b.onclick=()=>{Q.splice(+b.dataset.qx,1);drawQ()});
+  $('#oClr').onclick=()=>{Q=[];drawQ()};
+  $('#oOk').onclick=async()=>{const inSp=$('#oInSp').checked;S.docsLib=S.docsLib||[];let n=0;for(const q of Q){const id=uid();try{await IDB.put({id,docFile:true,name:q.name,type:q.ftype,data:q.data})}catch(_){toast('Could not save '+q.name);continue}
+   if(inSp&&typeof spSt==='function')spSt().done[id]='existing';S.docsLib.push({id,propId:p.id,area:'owner',sub:ownerFolder(q.type),name:q.name,kind:q.type,added:Date.now()});n++}
+   save();toast(n+' owner document'+(n===1?'':'s')+' saved');vOwner()}};
+ $('#oF').onchange=async e=>{const F=[...e.target.files];e.target.value='';for(const f of F){const items=[];
+   if(/\.zip$/i.test(f.name)){try{const z=await JSZip.loadAsync(f);for(const en of Object.values(z.files)){if(en.dir||!/\.(pdf|jpe?g|png|webp)$/i.test(en.name))continue;const b=await en.async('blob');items.push({name:en.name.split('/').pop(),path:en.name,blob:b,ftype:/\.pdf$/i.test(en.name)?'application/pdf':/\.png$/i.test(en.name)?'image/png':'image/jpeg'})}}catch(_){toast('Could not open '+f.name)}}
+   else items.push({name:f.name,path:f.name,blob:f,ftype:f.type});
+   for(const it of items){const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(it.blob)});const k=docClassify(it.path);
+    Q.push({name:it.name,ftype:it.ftype,data,type:k==='Power of attorney'?'Power of attorney':k==='Land site plan / title deed'?'Land site plan / title deed':/هوية|passport|جواز/i.test(it.path)?'Owner ID / passport':'Other owner document'})}}
+  drawQ()};
+ $('#main').onclick=async e=>{const b=e.target.closest('[data-open]');if(b){const f=await IDB.get(b.dataset.open);if(!f){toast('File not found on this computer');return}const w=window.open();if(w)w.document.write(`<iframe src="${f.data}" style="border:0;width:100%;height:100%"></iframe>`)}};
+ $('#main').onchange=e=>{const s=e.target.closest('[data-mv]');if(s){const d=S.docsLib.find(x=>x.id===s.dataset.mv);d.kind=s.value;d.sub=ownerFolder(s.value);save();vOwner()}}}
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
@@ -3572,6 +3602,7 @@ const TH146={"units":[],"tenants":[]};
 (function mrNo1000(){S.settings=S.settings||{};if(S.settings._mr1000)return;
  (S.mrcpts||[]).forEach(r=>{if(+r.no<1000000){const old=String(r.no);r.no=String(1000000+ +r.no);(S.expenses||[]).forEach(e=>{if(e.mrId===r.id&&e.invNo==='Receipt '+old)e.invNo='Receipt '+r.no})}});
  if(S.settings.mrNext&&S.settings.mrNext<1000000)S.settings.mrNext+=1000000;S.settings._mr1000=1;save()})();
+(function migrateOwnerDocs(){try{let ch=0;(S.docsLib||[]).forEach(d=>{if(d.area==='legal'){d.area='owner';d.sub=ownerFolder(d.kind);ch=1}});if(ch)save()}catch(_){}})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
