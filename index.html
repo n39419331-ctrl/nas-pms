@@ -2969,8 +2969,9 @@ function spAsk(need,match){return new Promise(res=>{const rel=p=>p.slice(SP_CFG.
   <p style="margin-top:10px"><b>${need.size} new folder${need.size>1?'s':''} will be created</b></p><div class="hint" style="max-height:260px;overflow:auto">${[...need].map(p=>esc(rel(p))).join('<br>')}</div>
   <div style="margin-top:12px;display:flex;gap:8px"><button class="btn pri" id="spYes">Approve and upload</button><button class="btn" id="spNo">Not now</button></div>`,null);
  $('#spYes',o).onclick=()=>{o.remove();res(true)};$('#spNo',o).onclick=()=>{o.remove();res(false)}})}
-async function spSync(interactive){if(!spOn()||SPX.busy)return;SPX.busy=true;const st=spSt();let up=0,err=0;
- try{SPX.kids={};let ids=new Set();try{ids=new Set((await IDB.all()).map(f=>f.id))}catch(_){}const I=spItems().filter(x=>ids.has(x.id));if(!I.length){if(interactive)toast('SharePoint: everything is up to date');return}
+async function spSync(interactive,quiet){if(!spOn()||SPX.busy)return;SPX.busy=true;const st=spSt();let up=0,err=0;
+ try{if(!st.baseline){spItems().forEach(x=>st.done[x.id]='existing');st.baseline=new Date().toISOString();save0()}
+  SPX.kids={};let ids=new Set();try{ids=new Set((await IDB.all()).map(f=>f.id))}catch(_){}const I=spItems().filter(x=>ids.has(x.id));if(!I.length){if(interactive&&!quiet)toast('SharePoint: everything is up to date');return}
   const need=new Set(),plan=[];for(const it of I)plan.push({it,path:await spResolve(spSegs(it),need)});
   if(need.size){if(!interactive){st.pending=need.size;save0();renderSpBadge();return}
    const match=[...new Set(Object.values(st.paths))].filter(p=>p.split('/').length===2);if(!await spAsk(need,match)){toast('Nothing uploaded');return}await spCreate(need)}
@@ -2987,7 +2988,7 @@ function renderSpBadge(){const e=document.getElementById('spBadge');if(e)e.inner
 function spBadgeHtml(){const st=spSt();return spOn()?`Connected as <b>${esc(SPX.acct.username||'')}</b>${st.last?' · last upload '+fd(st.last.slice(0,10)):''}${st.pending?` · <span style="color:var(--red)">${st.pending} new folder(s) waiting for your approval</span>`:''}`:'Not connected'}
 function spCard(){return `<div class="card"><b>SharePoint</b><p class="hint" style="margin:6px 0">Files go to: ${esc(SP_CFG.host+SP_CFG.site)} › ${esc(SP_CFG.root)}</p><div id="spBadge" class="hint">${spBadgeHtml()}</div>
  <div style="margin-top:8px;display:flex;gap:8px">${spOn()?'<button class="btn pri" onclick="spSync(true)">Upload now</button><button class="btn" onclick="spSignOut()">Sign out</button>':'<button class="btn pri" onclick="spConnect()">Connect to SharePoint</button>'}</div></div>`}
-(function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(false),15000)}};
+(function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(true,true),1500)}};
  const sx=saveXlsx;saveXlsx=async function(z,name){await sx(z,name);if(spOn())spSaveFile('excel',name,await z.generateAsync({type:'blob',compression:'DEFLATE'}))};
  const wx=()=>{if(window.XLSX&&!XLSX._spw){const w=XLSX.writeFile;XLSX.writeFile=function(wb,name,opt){const r=w.call(XLSX,wb,name,opt);if(spOn())spSaveFile('excel',name,new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})]));return r};XLSX._spw=1}};wx();setTimeout(wx,3000);
  if(location.protocol!=='file:'&&!(window.opener&&window.opener!==window))spInit().then(async()=>{if(SPX.acct){try{const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;render();spSync(false)}catch(e){console.error(e)}}}).catch(()=>{})})();
