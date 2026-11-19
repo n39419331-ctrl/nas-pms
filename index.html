@@ -2970,8 +2970,8 @@ function spAsk(need,match){return new Promise(res=>{const rel=p=>p.slice(SP_CFG.
   <div style="margin-top:12px;display:flex;gap:8px"><button class="btn pri" id="spYes">Approve and upload</button><button class="btn" id="spNo">Not now</button></div>`,null);
  $('#spYes',o).onclick=()=>{o.remove();res(true)};$('#spNo',o).onclick=()=>{o.remove();res(false)}})}
 async function spSync(interactive,quiet){if(!spOn()||SPX.busy)return;SPX.busy=true;const st=spSt();let up=0,err=0;
- try{if(!st.baseline){spItems().forEach(x=>st.done[x.id]='existing');st.baseline=new Date().toISOString();save0()}
-  SPX.kids={};let ids=new Set();try{ids=new Set((await IDB.all()).map(f=>f.id))}catch(_){}const I=spItems().filter(x=>ids.has(x.id));if(!I.length){if(interactive&&!quiet)toast('SharePoint: everything is up to date');return}
+ try{if(!st.baseline){spItems().forEach(x=>st.done[x.id]='existing');st.baseline=new Date().toISOString();st.pending=0;save0()}
+  SPX.kids={};let ids=new Set();try{ids=new Set((await IDB.all()).map(f=>f.id))}catch(_){}const I=spItems().filter(x=>ids.has(x.id));if(!I.length){if(st.pending){st.pending=0;save0()}if(interactive&&!quiet)toast('SharePoint: everything is up to date');return}
   const need=new Set(),plan=[];for(const it of I)plan.push({it,path:await spResolve(spSegs(it),need)});
   if(need.size){if(!interactive){st.pending=need.size;save0();renderSpBadge();return}
    const match=[...new Set(Object.values(st.paths))].filter(p=>p.split('/').length===2);if(!await spAsk(need,match)){toast('Nothing uploaded');return}await spCreate(need)}
