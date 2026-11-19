@@ -2957,7 +2957,7 @@ async function spResolve(segs,need){const st=spSt();let path=SP_CFG.root,created
 function spKind(k){k=String(k||'');return /contract/i.test(k)?'Tenancy contracts':/emirates|passport|visa|\bid\b/i.test(k)?'Emirates ID & passport':/cheque|receipt|slip/i.test(k)?'Cheques & receipts':'Other documents'}
 /* every attachment in the app with its folder target */
 function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,...o})};
- (S.tenants||[]).forEach(t=>{(t.docs||[]).forEach(d=>add(d.id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:spKind(d.kind),name:d.name}));(t.files||[]).forEach(id=>add(id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:'Other documents'}))});
+ (S.tenants||[]).forEach(t=>{(t.docs||[]).forEach(d=>add(d.id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:spKind(d.kind),name:d.name,kind:d.kind}));(t.files||[]).forEach(id=>add(id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:'Other documents'}))});
  const tn=(pid,u,f)=>{const t=(S.tenants||[]).find(x=>x.propId===pid&&String(x.unit)===String(u)&&tenantCurrent(x));return t?t.name:(f||'')};
  (S.receipts||[]).forEach(r=>(r.files||[]).forEach(id=>add(id,{propId:r.propId,area:'tenant',unit:r.unit,tenant:tn(r.propId,r.unit,r.payer),sub:'Cheques & receipts'})));
  (S.cheques||[]).forEach(c=>[...(c.files||[]),...(c.depFiles||[])].forEach(id=>add(id,{propId:c.propId,area:'tenant',unit:c.unit,tenant:tn(c.propId,c.unit,c.payer),sub:'Cheques & receipts'})));
@@ -2966,7 +2966,9 @@ function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,..
 async function spCreate(paths){for(const full of [...paths].sort((a,b)=>a.split('/').length-b.split('/').length)){const i=full.lastIndexOf('/'),par=full.slice(0,i),nm=full.slice(i+1);
   const ex=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(full));if(ex)continue;
   await gf('/drives/'+SPX.drive+'/root:/'+spEnc(par)+':/children',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm,folder:{},'@microsoft.graph.conflictBehavior':'fail'})});delete SPX.kids[par]}}
-async function spPut(path,name,blob){name=spClean(name);if(blob.size<=4*1024*1024)return gf('/drives/'+SPX.drive+'/root:/'+spEnc(path+'/'+name)+':/content',{method:'PUT',body:blob});
+const SP_EXT={'image/jpeg':'.jpg','image/jpg':'.jpg','image/png':'.png','image/webp':'.webp','image/gif':'.gif','image/heic':'.heic','application/pdf':'.pdf','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'.xlsx','application/vnd.openxmlformats-officedocument.wordprocessingml.document':'.docx','application/msword':'.doc','application/vnd.ms-excel':'.xls','application/json':'.json','text/plain':'.txt'};
+function spWithExt(name,type){name=String(name||'file');if(/\.[a-z0-9]{2,5}$/i.test(name))return name;return name+(SP_EXT[String(type||'').toLowerCase()]||'')}
+async function spPut(path,name,blob){name=spClean(spWithExt(name,blob.type));if(blob.size<=4*1024*1024)return gf('/drives/'+SPX.drive+'/root:/'+spEnc(path+'/'+name)+':/content',{method:'PUT',body:blob});
  const s=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(path+'/'+name)+':/createUploadSession',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'rename'}})});
  const CH=5*1024*1024;let last=null;for(let o=0;o<blob.size;o+=CH){const part=blob.slice(o,Math.min(o+CH,blob.size));const r=await fetch(s.uploadUrl,{method:'PUT',headers:{'Content-Range':`bytes ${o}-${o+part.size-1}/${blob.size}`},body:part});if(!r.ok)throw new Error('Upload failed '+r.status);last=await r.json().catch(()=>({}))}return last}
 const spB64=d=>{const m=String(d||'').match(/^data:([^;,]*)(;base64)?,(.*)$/);if(!m)return null;const bin=m[2]?atob(m[3]):decodeURIComponent(m[3]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:m[1]||'application/octet-stream'})};
@@ -2983,7 +2985,7 @@ async function spSync(interactive,quiet){if(!spOn()||SPX.busy)return;if(!spUserF
   if(need.size){if(!interactive){st.pending=need.size;save0();renderSpBadge();return}
    const match=[...new Set(Object.values(st.paths))].filter(p=>p.split('/').length===2);if(!await spAsk(need,match)){toast('Nothing uploaded');return}await spCreate(need)}
   for(const {it,path} of plan){try{const f=await IDB.get(it.id);const blob=f&&spB64(f.data);if(!blob)continue;
-    const r=await spPut(path,it.name||f.name||('file-'+it.id),blob);st.done[it.id]=(r&&r.webUrl)||'ok';up++;actLog('Uploaded to SharePoint: '+path.slice(SP_CFG.root.length+1)+'/'+(it.name||f.name||''),it.propId)}catch(e){console.error(e);err++}}
+    let nm=it.name||f.name||('file-'+it.id);if(it.area==='tenant'&&it.kind&&/^(file-|image|img|photo|scan|whatsapp|\d)/i.test(nm))nm=it.kind+' - '+(it.tenant||'')+' - '+nm;const r=await spPut(path,nm,blob);st.done[it.id]=(r&&r.webUrl)||'ok';up++;actLog('Uploaded to SharePoint: '+path.slice(SP_CFG.root.length+1)+'/'+(it.name||f.name||''),it.propId)}catch(e){console.error(e);err++}}
   st.pending=0;st.last=new Date().toISOString();save0();toast('SharePoint: '+up+' file'+(up===1?'':'s')+' uploaded'+(err?' · '+err+' failed':''))}
  catch(e){console.error(e);toast(e.message||'SharePoint sync failed')}finally{SPX.busy=false;renderSpBadge()}}
 /* Excel / Word / backup copies */
