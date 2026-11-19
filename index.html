@@ -2918,13 +2918,14 @@ const spClean=s=>String(s||'').replace(/["*:<>?\/\\|#%]/g,'-').replace(/\s+/g,' 
 const spNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const spEnc=p=>p.split('/').map(encodeURIComponent).join('/');
 function spLoadLib(){return window.msal?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';s.onload=res;s.onerror=()=>rej(new Error('Could not load Microsoft sign-in'));document.head.appendChild(s)})}
+function spClearStuck(){[sessionStorage,localStorage].forEach(st=>{try{Object.keys(st).forEach(k=>{if(/interaction\.status/i.test(k))st.removeItem(k)})}catch(_){}})}
 async function spInit(){if(SPX.app)return;await spLoadLib();SPX.app=new msal.PublicClientApplication({auth:{clientId:SP_CFG.clientId,authority:'https://login.microsoftonline.com/'+SP_CFG.tenantId,redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage'}});
- const a=SPX.app.getAllAccounts();if(a.length)SPX.acct=a[0]}
+ try{await SPX.app.handleRedirectPromise()}catch(_){}spClearStuck();const a=SPX.app.getAllAccounts();if(a.length)SPX.acct=a[0]}
 async function spToken(){const req={scopes:SP_CFG.scopes,account:SPX.acct};try{return (await SPX.app.acquireTokenSilent(req)).accessToken}catch(e){const r=await SPX.app.acquireTokenPopup({scopes:SP_CFG.scopes});SPX.acct=r.account;return r.accessToken}}
 async function gf(path,opt={}){const t=await spToken();const r=await fetch(path.startsWith('http')?path:'https://graph.microsoft.com/v1.0'+path,{...opt,headers:{Authorization:'Bearer '+t,...(opt.headers||{})}});
  if(r.status===404)return null;if(!r.ok){let m='';try{m=(await r.json()).error.message}catch(_){}throw new Error('SharePoint '+r.status+(m?': '+m:''))}return r.status===204?{}:r.json()}
 async function spConnect(){try{if(location.protocol==='file:'){toast('Microsoft sign-in works only from the online address of the app, not from the file');return}
- await spInit();if(!SPX.acct){const r=await SPX.app.loginPopup({scopes:SP_CFG.scopes});SPX.acct=r.account}
+ if(SPX.connecting)return;SPX.connecting=true;try{await spInit();spClearStuck();if(!SPX.acct){const r=await SPX.app.loginPopup({scopes:SP_CFG.scopes,prompt:'select_account'});SPX.acct=r.account}}finally{SPX.connecting=false}
  const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);if(!site)throw new Error('SharePoint site not found');const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;
  if(!await gf('/drives/'+SPX.drive+'/root:/'+spEnc(SP_CFG.root)))throw new Error('Main folder not found in SharePoint');
  toast('Connected to SharePoint as '+(SPX.acct.username||''));render();spSync(true)}catch(e){console.error(e);toast(e.message||'Could not connect to SharePoint')}}
@@ -2989,7 +2990,7 @@ function spCard(){return `<div class="card"><b>SharePoint</b><p class="hint" sty
 (function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(false),15000)}};
  const sx=saveXlsx;saveXlsx=async function(z,name){await sx(z,name);if(spOn())spSaveFile('excel',name,await z.generateAsync({type:'blob',compression:'DEFLATE'}))};
  const wx=()=>{if(window.XLSX&&!XLSX._spw){const w=XLSX.writeFile;XLSX.writeFile=function(wb,name,opt){const r=w.call(XLSX,wb,name,opt);if(spOn())spSaveFile('excel',name,new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})]));return r};XLSX._spw=1}};wx();setTimeout(wx,3000);
- if(location.protocol!=='file:')spInit().then(async()=>{if(SPX.acct){try{const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;render();spSync(false)}catch(e){console.error(e)}}}).catch(()=>{})})();
+ if(location.protocol!=='file:'&&!(window.opener&&window.opener!==window))spInit().then(async()=>{if(SPX.acct){try{const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;render();spSync(false)}catch(e){console.error(e)}}}).catch(()=>{})})();
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
