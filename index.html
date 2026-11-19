@@ -2915,7 +2915,7 @@ let SPX={app:null,acct:null,drive:null,busy:false,timer:null,kids:{}};
 const spSt=()=>{S.settings=S.settings||{};return S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}}};
 const spOn=()=>!!(SPX.app&&SPX.acct&&SPX.drive);
 const spClean=s=>String(s||'').replace(/["*:<>?\/\\|#%]/g,'-').replace(/\s+/g,' ').trim().replace(/[. ]+$/,'')||'-';
-const spNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const spNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g,' ').trim();
 const spEnc=p=>p.split('/').map(encodeURIComponent).join('/');
 function spLoadLib(){return window.msal?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js';s.onload=res;s.onerror=()=>rej(new Error('Could not load Microsoft sign-in'));document.head.appendChild(s)})}
 function spClearStuck(){[sessionStorage,localStorage].forEach(st=>{try{Object.keys(st).forEach(k=>{if(/interaction\.status/i.test(k))st.removeItem(k)})}catch(_){}})}
@@ -2940,13 +2940,14 @@ async function spKids(path){if(SPX.kids[path])return SPX.kids[path];const L=[];l
  while(u){const r=await gf(u);if(!r)break;(r.value||[]).forEach(x=>{if(x.folder)L.push(x.name)});u=r['@odata.nextLink']||null}return SPX.kids[path]=L}
 /* find an existing child folder; returns its name or null */
 function spPick(names,want){const W=spNorm(want.label),T=(want.tokens||[]).map(spNorm).filter(Boolean);
- return names.find(n=>spNorm(n)===W)||(T.length?names.find(n=>{const N=' '+spNorm(n)+' ';return T.every(t=>N.includes(' '+t+' '))}):null)||null}
+ return names.find(n=>spNorm(n)===W)||(T.length?names.find(n=>{const N=' '+spNorm(n)+' ';return T.every(t=>N.includes(' '+t+' '))}):null)||((want.alt||[]).length?names.find(n=>(want.alt||[]).some(a=>spNorm(n).includes(spNorm(a)))):null)||null}
 /* folder plan for one target: list of {label,tokens} segments under the root */
 function spUserFolder(){const st=spSt();st.users=st.users||{};return SPX.acct?st.users[(SPX.acct.username||'').toLowerCase()]||'':''}
 function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||p.no||o.propId,U={label:spUserFolder(),tokens:[]},B0={label:'Building '+b,tokens:[String(b)]};const B=[U,B0];
  if(o.area==='tenant')return [...B,{label:'Tenants',tokens:['tenant']},{label:spClean(o.unit+' - '+(o.tenant||'')),tokens:[String(o.unit)]},{label:o.sub,tokens:[]}];
  if(o.area==='maint')return [...B,{label:'Maintenance',tokens:['maintenance']},{label:spClean(o.supplier||'General'),tokens:spNorm(o.supplier||'general').split(' ').slice(0,2)}];
  if(o.area==='other')return [...B,{label:'Other documents',tokens:['other']}];
+ if(o.area==='legal')return [...B,/attorney/i.test(o.sub||'')?{label:'Power of attorney (وكالات)',tokens:['attorney'],alt:['وكالات','وكالة']}:{label:'Ownership & site plans',tokens:['site','plan'],alt:['ownership','مخطط']}];
  if(o.area==='excel')return [...B,{label:'Excel reports',tokens:['excel']}];
  return [...B,{label:'Backups',tokens:['backup']}]}
 /* resolve a segment list to a path; collects folders that would need creating */
@@ -2963,7 +2964,7 @@ function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,..
  (S.receipts||[]).forEach(r=>(r.files||[]).forEach(id=>add(id,{propId:r.propId,area:'tenant',unit:r.unit,tenant:tn(r.propId,r.unit,r.payer),sub:'Cheques & receipts'})));
  (S.cheques||[]).forEach(c=>[...(c.files||[]),...(c.depFiles||[])].forEach(id=>add(id,{propId:c.propId,area:'tenant',unit:c.unit,tenant:tn(c.propId,c.unit,c.payer),sub:'Cheques & receipts'})));
  (S.expenses||[]).forEach(e=>(e.files||[]).forEach(id=>add(id,{propId:e.propId,area:'maint',supplier:e.vendor||'General'})));
- (S.docsLib||[]).forEach(d=>add(d.id,{propId:d.propId,area:d.area==='maint'?'maint':'other',supplier:d.supplier||'General',name:d.name}));
+ (S.docsLib||[]).forEach(d=>add(d.id,{propId:d.propId,area:d.area==='maint'?'maint':d.area==='legal'?'legal':'other',supplier:d.supplier||'General',sub:d.sub,name:d.name}));
  return I.filter(x=>x.propId&&(x.area!=='tenant'||x.unit))}
 async function spCreate(paths){for(const full of [...paths].sort((a,b)=>a.split('/').length-b.split('/').length)){const i=full.lastIndexOf('/'),par=full.slice(0,i),nm=full.slice(i+1);
   const ex=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(full));if(ex)continue;
@@ -3041,7 +3042,7 @@ function vAct(){const L=(S.activity||[]).slice().reverse().filter(a=>(actP==='al
  <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
  bindTop();$('#aq').oninput=e=>{actQ=e.target.value;const ps=e.target.selectionStart;vAct();const i=$('#aq');i.focus();i.setSelectionRange(ps,ps)};$('#ap').onchange=e=>{actP=e.target.value;vAct()};$('#af').onchange=e=>{actFrom=e.target.value;vAct()};$('#at').onchange=e=>{actTo=e.target.value;vAct()}}
 /* ================= Documents — upload any document; the app reads it and files it in the right place ================= */
-const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Other building document','other']];
+const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Power of attorney','legal'],['Land site plan / title deed','legal'],['Other building document','other']];
 const docArea=k=>(DOC_TYPES.find(x=>x[0]===k)||[,'other'])[1];
 let DOCQ=[];
 async function docText(f){let txt='';
@@ -3050,6 +3051,8 @@ async function docText(f){let txt='';
  if(txt.replace(/\s/g,'').length<40){try{const w=await getTess();for(const c of await fileToCanvases(f,2))txt+=((await w.recognize(forOCR(c))).data.text||'')+'\n'}catch(e){console.error(e)}}
  return txt}
 function docClassify(t){const U=t.toUpperCase();
+ if(/مخطط ارض|مخطط أرض|ﻣﺨﻄﻂ|LAND SITE PLAN|SITE PLAN|TITLE DEED|سند ملكية|ملكية عقار/.test(U))return 'Land site plan / title deed';
+ if(/وكالة|وكالات|POWER OF ATTORNEY/.test(U))return 'Power of attorney';
  if(/TENANCY CONTRACT|LEASE CONTRACT|عقد إيجار|عقد ايجار|TAWTHEEQ|TAWTHIQ/.test(U)&&/CONTRACT/.test(U))return 'Tenancy contract';
  if(/IDENTITY CARD|بطاقة هوية|RESIDENT IDENTITY/.test(U)||(/7\s?8\s?4\s?[-–.\s]?\d{4}\s?[-–.\s]?\d{7}\s?[-–.\s]?\d/.test(U.replace(/O/g,'0'))&&U.length<1500))return 'Emirates ID';
  if(/P<[A-Z<]{3}|PASSPORT NO|^PASSPORT|REPUBLIC OF .*PASSPORT/m.test(U))return 'Passport';
@@ -3074,20 +3077,22 @@ function docSupplier(t){const U=t.toUpperCase();const V=[...new Set((S.expenses|
  const m=t.replace(/\s+/g,' ').match(/([A-Z][A-Za-z&.'\- ]{2,50}?\b(?:L\.?\s?L\.?\s?C\.?|TRADING|CONTRACTING|SERVICES|MAINTENANCE|ELECTRICAL|ELECTROMECHANICAL|EST\.?|ESTABLISHMENT))(?![A-Za-z])/);return m?m[1].trim():''}
 function docTenantOpts(pid,sel){return '<option value="">— choose tenant —</option>'+S.tenants.filter(t=>t.propId===pid).sort((a,b)=>String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true})).map(t=>`<option value="${t.id}" ${t.id===sel?'selected':''}>${esc(t.unit)} – ${esc(t.name)}${tenantCurrent(t)?'':' (old)'}</option>`).join('')}
 function docDest(d){const p=S.properties.find(x=>x.id===d.propId)||{},b='Building '+(p.short||p.no||''),uf=(typeof spUserFolder==='function'&&spUserFolder())||'Your folder';const t=S.tenants.find(x=>x.id===d.tid);
- const a=docArea(d.type);return a==='tenant'?(t?`${uf} › ${b} › Tenant › ${t.unit} - ${t.name} › ${spKind(d.type)}`:'choose a tenant'):a==='maint'?`${uf} › ${b} › Maintenance › ${d.supplier||'General'}`:`${uf} › ${b} › Other documents`}
+ const a=docArea(d.type);return a==='tenant'?(t?`${uf} › ${b} › Tenant › ${t.unit} - ${t.name} › ${spKind(d.type)}`:'choose a tenant'):a==='maint'?`${uf} › ${b} › Maintenance › ${d.supplier||'General'}`:a==='legal'?`${uf} › ${b} › ${docLegalFolder(d.type)}`:`${uf} › ${b} › Other documents`}
+function docLegalFolder(k){return /attorney/i.test(k)?'Power of attorney (وكالات)':'Ownership & site plans'}
 function vDocs(){const recent=[];S.tenants.forEach(t=>(t.docs||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===t.propId)||{}).short+' · '+t.unit+' – '+t.name,id:d.id})));
- (S.docsLib||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===d.propId)||{}).short+' · '+(d.area==='maint'?'Maintenance – '+(d.supplier||'General'):'Other documents'),id:d.id}));
+ (S.docsLib||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===d.propId)||{}).short+' · '+(d.area==='maint'?'Maintenance – '+(d.supplier||'General'):d.area==='legal'?d.sub:'Other documents'),id:d.id}));
  recent.sort((a,b)=>b.at-a.at);const sp=typeof spSt==='function'?spSt().done:{};
- $('#main').innerHTML=topbar('Documents')+`<div class="card"><b>Upload documents</b><p class="hint" style="margin:6px 0 10px">Select any documents (Emirates ID, passport, tenancy contract, cheque, supplier invoice …). The app reads each one, finds the tenant or supplier, and shows where it will go. Nothing is saved until you click <b>Approve and save</b>.</p>
-  <input type="file" id="dF" multiple accept="image/*,.pdf"><div id="dSt" class="hint" style="margin-top:8px"></div><div id="dQ"></div></div>
+ $('#main').innerHTML=topbar('Documents')+`<div class="card"><b>Upload documents</b><p class="hint" style="margin:6px 0 10px">Select any documents or a .zip (Emirates ID, passport, tenancy contract, cheque, supplier invoice, power of attorney, site plan …). The app reads each one, finds the tenant or supplier, and shows where it will go. Nothing is saved until you click <b>Approve and save</b>.</p>
+  <input type="file" id="dF" multiple accept="image/*,.pdf,.zip"><div id="dSt" class="hint" style="margin-top:8px"></div><div id="dQ"></div></div>
   <div class="card"><b>Recent documents</b><div class="tw" style="margin-top:8px"><table class="t"><tr><th>Added</th><th>Document</th><th>Type</th><th>Filed under</th><th>SharePoint</th><th></th></tr>${recent.slice(0,100).map(r=>`<tr><td>${r.at?fd(new Date(r.at).toISOString().slice(0,10)):''}</td><td>${esc(r.name||'')}</td><td>${esc(r.type||'')}</td><td>${esc(r.where)}</td><td>${sp[r.id]&&sp[r.id]!=='existing'?'<span class="tag grn">Uploaded</span>':sp[r.id]==='existing'?'—':'<span class="hint">waiting</span>'}</td><td><button class="btn sm" data-open="${r.id}">Open</button></td></tr>`).join('')||'<tr><td colspan=6 class="hint">No documents yet.</td></tr>'}</table></div></div>`;
  bindTop();drawDocQ();
  $('#main').onclick=async e=>{const b=e.target.closest('[data-open]');if(b){const f=await IDB.get(b.dataset.open);if(!f){toast('File not found on this computer');return}const w=window.open();if(w)w.document.write(`<iframe src="${f.data}" style="border:0;width:100%;height:100%"></iframe>`)}};
- $('#dF').onchange=async e=>{const F=[...e.target.files];if(!F.length)return;const st=$('#dSt');
-  for(const f of F){st.textContent='Reading '+f.name+'…';const txt=await docText(f);const type=docClassify(txt);const m=docMatch(txt);
+ $('#dF').onchange=async e=>{let F=[...e.target.files];if(!F.length)return;const st=$('#dSt');
+  const ex=[];for(const f of F){if(/\.zip$/i.test(f.name)){st.textContent='Opening '+f.name+'…';try{const z=await JSZip.loadAsync(f);for(const en of Object.values(z.files)){if(en.dir||!/\.(pdf|jpe?g|png|webp|heic)$/i.test(en.name))continue;const b=await en.async('blob');const ty=/\.pdf$/i.test(en.name)?'application/pdf':/\.png$/i.test(en.name)?'image/png':'image/jpeg';const nf=new File([b],en.name.split('/').pop(),{type:ty});nf._path=en.name;ex.push(nf)}}catch(err){toast('Could not open '+f.name)}}else ex.push(f)}F=ex;
+  for(const f of F){st.textContent='Reading '+f.name+'…';const txt=await docText(f);const type=docClassify((f._path||f.name)+'\n'+txt);const m=docMatch(txt);
    const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});
    const kind=type||(m?'Other tenant document':'Other building document');
-   DOCQ.push({qid:uid(),file:f,data,name:f.name,size:f.size,ftype:f.type,type:kind,propId:m?m.t.propId:S.cur,tid:m?m.t.id:'',why:m?m.why:'',supplier:docArea(kind)==='maint'?docSupplier(txt):'',read:!!txt.trim()})}
+   DOCQ.push({qid:uid(),file:f,data,name:(f._path?f._path.split('/').slice(-1)[0]:f.name),size:f.size,ftype:f.type,type:kind,propId:(m&&docArea(kind)==='tenant')?m.t.propId:S.cur,tid:(m&&docArea(kind)==='tenant')?m.t.id:'',why:(m&&docArea(kind)==='tenant')?m.why:'',supplier:docArea(kind)==='maint'?docSupplier(txt):'',read:!!txt.trim()})}
   st.textContent='';e.target.value='';drawDocQ()}}
 function drawDocQ(){const box=$('#dQ');if(!box)return;if(!DOCQ.length){box.innerHTML='';return}
  const sup=[...new Set((S.expenses||[]).map(e=>e.vendor).concat((S.docsLib||[]).map(d=>d.supplier)).filter(Boolean))];
@@ -3105,7 +3110,7 @@ function drawDocQ(){const box=$('#dQ');if(!box)return;if(!DOCQ.length){box.inner
  $('#dOk').onclick=async()=>{const bad=DOCQ.find(d=>docArea(d.type)==='tenant'&&!d.tid);if(bad){toast('Choose the tenant for '+bad.name);return}
   let n=0;for(const d of DOCQ){const id=uid();try{await IDB.put({id,docFile:true,name:d.name,type:d.ftype,data:d.data})}catch(_){toast('Could not save '+d.name);continue}
    if(docArea(d.type)==='tenant'){const t=S.tenants.find(x=>x.id===d.tid);t.docs=t.docs||[];t.docs.push({id,name:d.name,type:d.ftype,size:d.size,kind:d.type==='Other tenant document'?'other':d.type,added:Date.now()})}
-   else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',name:d.name,kind:d.type,added:Date.now()})}n++}
+   else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',sub:docArea(d.type)==='legal'?docLegalFolder(d.type):'',name:d.name,kind:d.type,added:Date.now()})}n++}
   DOCQ=[];save();toast(n+' document'+(n===1?'':'s')+' saved');vDocs()}}
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+`
