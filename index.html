@@ -3102,13 +3102,14 @@ function drawDocQ(){const box=$('#dQ');if(!box)return;if(!DOCQ.length){box.inner
   <td><select data-k="propId">${S.properties.map(p=>`<option value="${p.id}" ${p.id===d.propId?'selected':''}>${esc(p.short||p.no)}</option>`).join('')}</select></td>
   <td>${docArea(d.type)==='tenant'?`<select data-k="tid" style="max-width:260px">${docTenantOpts(d.propId,d.tid)}</select>`:docArea(d.type)==='maint'?`<input data-k="supplier" list="dSupL" value="${esc(d.supplier)}" placeholder="Supplier name">`:'—'}</td>
   <td class="hint">${esc(docDest(d))}</td><td><button class="btn sm danger" data-rm>✕</button></td></tr>`).join('')}</table></div>
+ <label style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" id="dInSp" style="width:auto"> These files are already in SharePoint — save in the app only (do not upload)</label>
  <div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" id="dOk">Approve and save (${DOCQ.length})</button><button class="btn" id="dClr">Clear</button></div>`;
  box.querySelectorAll('tr[data-q]').forEach(tr=>{const d=DOCQ.find(x=>x.qid===tr.dataset.q);
   tr.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{d[el.dataset.k]=el.value;if(el.dataset.k==='propId')d.tid='';drawDocQ()});
   tr.querySelector('[data-rm]').onclick=()=>{DOCQ=DOCQ.filter(x=>x!==d);drawDocQ()}});
  $('#dClr').onclick=()=>{DOCQ=[];drawDocQ()};
  $('#dOk').onclick=async()=>{const bad=DOCQ.find(d=>docArea(d.type)==='tenant'&&!d.tid);if(bad){toast('Choose the tenant for '+bad.name);return}
-  let n=0;for(const d of DOCQ){const id=uid();try{await IDB.put({id,docFile:true,name:d.name,type:d.ftype,data:d.data})}catch(_){toast('Could not save '+d.name);continue}
+  const inSp=$('#dInSp')&&$('#dInSp').checked;let n=0;for(const d of DOCQ){const id=uid();if(inSp&&typeof spSt==='function')spSt().done[id]='existing';try{await IDB.put({id,docFile:true,name:d.name,type:d.ftype,data:d.data})}catch(_){toast('Could not save '+d.name);continue}
    if(docArea(d.type)==='tenant'){const t=S.tenants.find(x=>x.id===d.tid);t.docs=t.docs||[];t.docs.push({id,name:d.name,type:d.ftype,size:d.size,kind:d.type==='Other tenant document'?'other':d.type,added:Date.now()})}
    else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',sub:docArea(d.type)==='legal'?docLegalFolder(d.type):'',name:d.name,kind:d.type,added:Date.now()})}n++}
   DOCQ=[];save();toast(n+' document'+(n===1?'':'s')+' saved');vDocs()}}
