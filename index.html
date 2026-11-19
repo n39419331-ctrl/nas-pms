@@ -1131,12 +1131,12 @@ function printHTML(html,page){$('#pageStyle').textContent='@page{size:'+page+';m
   setTimeout(()=>{window.print();setTimeout(()=>{document.body.classList.remove('printing');$('#printArea').innerHTML=''},300)},150)}
 
 /* ---------- navigation ---------- */
-const ICONS={"act": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/>", "xl": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"1.5\"/><path d=\"M4 9h16M4 14h16M10 4v16\"/>", "dash": "<path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "units": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"1.5\"/><path d=\"M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2\"/>", "ten": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5\"/><path d=\"M16 4.6a3.4 3.4 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.4 3.5 5.2\"/>", "rcpt": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"/><path d=\"M9 8h6M9 12h6\"/>", "chq": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18M7 15h4\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
+const ICONS={"docs": "<path d=\"M7 3h7l5 5v13H7z\"/><path d=\"M14 3v5h5M10 13h6M10 17h6\"/>", "act": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M12 7.5V12l3 2\"/>", "xl": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"1.5\"/><path d=\"M4 9h16M4 14h16M10 4v16\"/>", "dash": "<path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "units": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"1.5\"/><path d=\"M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2\"/>", "ten": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c.5-3.6 3.2-5.5 6.5-5.5s6 1.9 6.5 5.5\"/><path d=\"M16 4.6a3.4 3.4 0 0 1 0 6.4M18 14.8c2 .7 3.2 2.4 3.5 5.2\"/>", "rcpt": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2z\"/><path d=\"M9 8h6M9 12h6\"/>", "chq": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18M7 15h4\"/>", "set": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"/>"};
 ICONS.inv='<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/>';
 ICONS.exp='<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.6-.6-2.1z"/>';
 ICONS.tax='<path d="M5 19L19 5"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/>';
 ICONS.stmt='<path d="M12 3v18M16 7.5c-.6-1.2-2-2-4-2-2.4 0-4 1.2-4 3s1.5 2.5 4 3 4 1.2 4 3-1.7 3-4 3c-2.2 0-3.7-.9-4.2-2.3"/>';
-const TABS=[['dash','Dashboard'],['units','Property List'],['ten','Tenants'],['rcpt','Receipts'],['inv','Invoices'],['stmt','Rent Collection'],['chq','Cheques'],['exp','Maintenance & Expenses'],['tax','VAT / Tax'],['xl','Excel'],['act','Activity'],['set','Settings']];
+const TABS=[['dash','Dashboard'],['units','Property List'],['ten','Tenants'],['rcpt','Receipts'],['inv','Invoices'],['stmt','Rent Collection'],['chq','Cheques'],['exp','Maintenance & Expenses'],['tax','VAT / Tax'],['docs','Documents'],['xl','Excel'],['act','Activity'],['set','Settings']];
 let tab='dash';
 function go(t){if(t==='rcpt'&&tab!=='rcpt'&&!(draft&&draft.editId))draft=null;tab=t;render()}
 function render(){
@@ -1145,7 +1145,7 @@ function render(){
   $('#nav').innerHTML=TABS.filter(([k])=>k!=='inv'||prop().invoices).map(([k,l])=>`<a class="${k===tab?'on':''}" data-t="${k}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg><span>${l}</span></a>`).join('');
   $('#nav').onclick=e=>{const a=e.target.closest('a');if(a)go(a.dataset.t)};
   $('#main').onclick=null;
-  ({dash:vDash,units:vUnits,ten:vTen,rcpt:vRcpt,inv:vInv,stmt:vStmt,chq:vChq,exp:vExp,tax:vTax,xl:vXl,act:vAct,set:vSet})[tab]();
+  ({dash:vDash,units:vUnits,ten:vTen,rcpt:vRcpt,inv:vInv,stmt:vStmt,chq:vChq,exp:vExp,tax:vTax,docs:vDocs,xl:vXl,act:vAct,set:vSet})[tab]();
 }
 function topbar(title,extra=''){const opts=S.properties.map(p=>`<option value="${esc(p.id)}" ${p.id===S.cur?'selected':''}>${esc(p.no)}${p.landlord?' — '+esc(p.landlord):''}</option>`).join('');
   return `<div class="top"><h1>${title}</h1><div style="min-width:240px"><select id="propSel">${opts}</select></div>${extra}</div>`}
@@ -2946,6 +2946,7 @@ function spUserFolder(){const st=spSt();st.users=st.users||{};return SPX.acct?st
 function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||p.no||o.propId,U={label:spUserFolder(),tokens:[]},B0={label:'Building '+b,tokens:[String(b)]};const B=[U,B0];
  if(o.area==='tenant')return [...B,{label:'Tenants',tokens:['tenant']},{label:spClean(o.unit+' - '+(o.tenant||'')),tokens:[String(o.unit)]},{label:o.sub,tokens:[]}];
  if(o.area==='maint')return [...B,{label:'Maintenance',tokens:['maintenance']},{label:spClean(o.supplier||'General'),tokens:spNorm(o.supplier||'general').split(' ').slice(0,2)}];
+ if(o.area==='other')return [...B,{label:'Other documents',tokens:['other']}];
  if(o.area==='excel')return [...B,{label:'Excel reports',tokens:['excel']}];
  return [...B,{label:'Backups',tokens:['backup']}]}
 /* resolve a segment list to a path; collects folders that would need creating */
@@ -2954,7 +2955,7 @@ async function spResolve(segs,need){const st=spSt();let path=SP_CFG.root,created
   let hit=null;if(!created){const names=await spKids(path);hit=spPick(names,s)}
   if(hit){path=path+'/'+hit;st.paths[key]=path}else{need.add(path+'/'+s.label);path=path+'/'+s.label;created=true}}
  return path}
-function spKind(k){k=String(k||'');return /contract/i.test(k)?'Tenancy contracts':/emirates|passport|visa|\bid\b/i.test(k)?'Emirates ID & passport':/cheque|receipt|slip/i.test(k)?'Cheques & receipts':'Other documents'}
+function spKind(k){k=String(k||'');return /tenancy contract|^contract/i.test(k)?'Tenancy contracts':/emirates|passport|visa|\bid\b/i.test(k)?'Emirates ID & passport':/cheque|receipt|slip/i.test(k)?'Cheques & receipts':'Other documents'}
 /* every attachment in the app with its folder target */
 function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,...o})};
  (S.tenants||[]).forEach(t=>{(t.docs||[]).forEach(d=>add(d.id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:spKind(d.kind),name:d.name,kind:d.kind}));(t.files||[]).forEach(id=>add(id,{propId:t.propId,area:'tenant',unit:t.unit,tenant:t.name,sub:'Other documents'}))});
@@ -2962,6 +2963,7 @@ function spItems(){const I=[],add=(id,o)=>{if(id&&!spSt().done[id])I.push({id,..
  (S.receipts||[]).forEach(r=>(r.files||[]).forEach(id=>add(id,{propId:r.propId,area:'tenant',unit:r.unit,tenant:tn(r.propId,r.unit,r.payer),sub:'Cheques & receipts'})));
  (S.cheques||[]).forEach(c=>[...(c.files||[]),...(c.depFiles||[])].forEach(id=>add(id,{propId:c.propId,area:'tenant',unit:c.unit,tenant:tn(c.propId,c.unit,c.payer),sub:'Cheques & receipts'})));
  (S.expenses||[]).forEach(e=>(e.files||[]).forEach(id=>add(id,{propId:e.propId,area:'maint',supplier:e.vendor||'General'})));
+ (S.docsLib||[]).forEach(d=>add(d.id,{propId:d.propId,area:d.area==='maint'?'maint':'other',supplier:d.supplier||'General',name:d.name}));
  return I.filter(x=>x.propId&&(x.area!=='tenant'||x.unit))}
 async function spCreate(paths){for(const full of [...paths].sort((a,b)=>a.split('/').length-b.split('/').length)){const i=full.lastIndexOf('/'),par=full.slice(0,i),nm=full.slice(i+1);
   const ex=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(full));if(ex)continue;
@@ -3014,6 +3016,7 @@ function actKeyed(){const m={},put=(k,o)=>{m[k]=o};
  (S.expenses||[]).forEach(e=>put('e:'+e.id,{p:e.propId,l:'Expense '+((e.desc||e.category||'')+'').slice(0,60)+(e.amount?' – AED '+fa(e.amount):''),h:JSON.stringify(e)}));
  (S.mrcpts||[]).forEach(r=>put('m:'+r.id,{p:r.propId,l:'Maintenance receipt '+r.no+(r.flat?' (flat '+r.flat+')':''),h:JSON.stringify(r)}));
  Object.entries(S.units||{}).forEach(([pid,U])=>(U||[]).forEach(u=>put('u:'+pid+':'+u.unit,(({status,autoVac,...r})=>({p:pid,l:'Unit '+u.unit,h:JSON.stringify(r),st:status,av:!!autoVac}))(u))));
+ (S.docsLib||[]).forEach(d=>put('d:'+d.id,{p:d.propId,l:'Document '+d.name+' ('+d.kind+(d.supplier?' – '+d.supplier:'')+')',h:JSON.stringify(d)}));
  ((S.stmt&&S.stmt.entries)||[]).forEach(e=>{if(e.kind==='rent')put('s:'+e.id,{p:e.propId,l:'Rent Collection '+(e.unit?'unit '+e.unit+' ':'')+(e.desc||'')+(e.credit?' – AED '+fa(e.credit):''),h:JSON.stringify(e)})});
  (S.properties||[]).forEach(p=>put('p:'+p.id,{p:p.id,l:'Building '+(p.short||p.no),h:JSON.stringify(p)}));
  return m}
@@ -3036,6 +3039,73 @@ function vAct(){const L=(S.activity||[]).slice().reverse().filter(a=>(actP==='al
  $('#main').innerHTML=topbar('Activity')+`<div class="card"><div class="bar"><input type="search" id="aq" placeholder="Search activity" value="${esc(actQ)}"><select id="ap"><option value="cur" ${actP==='cur'?'selected':''}>This building</option><option value="all" ${actP==='all'?'selected':''}>All buildings</option></select><label>From</label><input type="date" id="af" value="${actFrom}"><label>To</label><input type="date" id="at" value="${actTo}"><span class="hint">${L.length} entries</span></div>
  <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
  bindTop();$('#aq').oninput=e=>{actQ=e.target.value;const ps=e.target.selectionStart;vAct();const i=$('#aq');i.focus();i.setSelectionRange(ps,ps)};$('#ap').onchange=e=>{actP=e.target.value;vAct()};$('#af').onchange=e=>{actFrom=e.target.value;vAct()};$('#at').onchange=e=>{actTo=e.target.value;vAct()}}
+/* ================= Documents — upload any document; the app reads it and files it in the right place ================= */
+const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Other building document','other']];
+const docArea=k=>(DOC_TYPES.find(x=>x[0]===k)||[,'other'])[1];
+let DOCQ=[];
+async function docText(f){let txt='';
+ if(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name)){try{if(!pdfReady){pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(assetBlob('a_pdfwk','text/javascript'));pdfReady=true}
+  const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;for(let p=1;p<=Math.min(pdf.numPages,3);p++){const tc=await (await pdf.getPage(p)).getTextContent();txt+=tc.items.map(x=>x.str).join(' ')+'\n'}}catch(_){}}
+ if(txt.replace(/\s/g,'').length<40){try{const w=await getTess();for(const c of await fileToCanvases(f,2))txt+=((await w.recognize(forOCR(c))).data.text||'')+'\n'}catch(e){console.error(e)}}
+ return txt}
+function docClassify(t){const U=t.toUpperCase();
+ if(/TENANCY CONTRACT|LEASE CONTRACT|عقد إيجار|عقد ايجار|TAWTHEEQ|TAWTHIQ/.test(U)&&/CONTRACT/.test(U))return 'Tenancy contract';
+ if(/IDENTITY CARD|بطاقة هوية|RESIDENT IDENTITY/.test(U)||(/7\s?8\s?4\s?[-–.\s]?\d{4}\s?[-–.\s]?\d{7}\s?[-–.\s]?\d/.test(U.replace(/O/g,'0'))&&U.length<1500))return 'Emirates ID';
+ if(/P<[A-Z<]{3}|PASSPORT NO|^PASSPORT|REPUBLIC OF .*PASSPORT/m.test(U))return 'Passport';
+ if(/TAX INVOICE|INVOICE|QUOTATION|QUOTE\b|PURCHASE ORDER|\bLPO\b|\bBILL\b|TAQA|ADDC|DELIVERY NOTE/.test(U))return 'Supplier invoice / quotation';
+ if(/PAY AGAINST THIS CHEQUE|OR BEARER|CHEQUE|شيك/.test(U))return 'Cheque copy';
+ if(/RENEWAL/.test(U))return 'Renewal slip';
+ if(/RECEIPT/.test(U))return 'Receipt';
+ if(/OFFER LETTER/.test(U))return 'Offer letter';
+ return ''}
+function docMatch(t){const U=t.toUpperCase(),D=U.replace(/O/g,'0').replace(/[^0-9]/g,' '),cur=x=>tenantCurrent(x),dig=s=>String(s||'').replace(/\D/g,'');
+ const eid=(U.replace(/O/g,'0').match(/7\s?8\s?4\s?[-–.\s]?\d{4}\s?[-–.\s]?\d{7}\s?[-–.\s]?\d/)||[])[0];
+ if(eid){const d=dig(eid);const t2=S.tenants.find(x=>dig(x.eid)===d);if(t2)return {t:t2,why:'Emirates ID number'}}
+ const nums=(D.match(/\d{10,14}/g)||[]);for(const n of nums){const t2=S.tenants.find(x=>dig(x.contractNo)===n||(x.leases||[]).some(l=>dig(l.cn)===n));if(t2)return {t:t2,why:'contract no '+n}}
+ for(const n of (D.match(/\b\d{6,7}\b/g)||[])){const c=S.cheques.find(c=>String(c.chqNo).replace(/^0+/,'')===n.replace(/^0+/,''));if(c){const t2=S.tenants.find(x=>x.propId===c.propId&&String(x.unit)===String(c.unit)&&cur(x));if(t2)return {t:t2,why:'cheque no '+c.chqNo}}}
+ let best=null,bs=0;const W=' '+U.replace(/[^A-Z؀-ۿ ]/g,' ').replace(/\s+/g,' ')+' ';
+ S.tenants.forEach(x=>{const toks=String(x.name||'').toUpperCase().split(/\s+/).filter(w=>w.length>2&&!/^(MR|MRS|MS|AL|BIN|BINT|LLC)$/.test(w));if(toks.length<2)return;const hit=toks.filter(w=>W.includes(' '+w+' ')).length;const sc=hit/toks.length+(cur(x)?.05:0);if(hit>=2&&sc>bs){bs=sc;best=x}});
+ if(best&&bs>=.6)return {t:best,why:'name'};
+ const um=U.match(/(?:UNIT|FLAT|APARTMENT|APT)\s*(?:NO\.?|#|:)?\s*([A-Z]{0,2}\d{2,4})\b/);if(um){const t2=S.tenants.find(x=>x.propId===S.cur&&String(x.unit).toUpperCase()===um[1]&&cur(x));if(t2)return {t:t2,why:'unit '+um[1]}}
+ return null}
+function docSupplier(t){const U=t.toUpperCase();const V=[...new Set((S.expenses||[]).map(e=>e.vendor).filter(Boolean))];const v=V.find(v=>U.includes(v.toUpperCase()));if(v)return v;
+ if(/TAQA|ABU DHABI DISTRIBUTION|ADDC/.test(U))return 'Taqa Distribution';
+ const m=t.replace(/\s+/g,' ').match(/([A-Z][A-Za-z&.'\- ]{2,50}?\b(?:L\.?\s?L\.?\s?C\.?|TRADING|CONTRACTING|SERVICES|MAINTENANCE|ELECTRICAL|ELECTROMECHANICAL|EST\.?|ESTABLISHMENT))(?![A-Za-z])/);return m?m[1].trim():''}
+function docTenantOpts(pid,sel){return '<option value="">— choose tenant —</option>'+S.tenants.filter(t=>t.propId===pid).sort((a,b)=>String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true})).map(t=>`<option value="${t.id}" ${t.id===sel?'selected':''}>${esc(t.unit)} – ${esc(t.name)}${tenantCurrent(t)?'':' (old)'}</option>`).join('')}
+function docDest(d){const p=S.properties.find(x=>x.id===d.propId)||{},b='Building '+(p.short||p.no||''),uf=(typeof spUserFolder==='function'&&spUserFolder())||'Your folder';const t=S.tenants.find(x=>x.id===d.tid);
+ const a=docArea(d.type);return a==='tenant'?(t?`${uf} › ${b} › Tenant › ${t.unit} - ${t.name} › ${spKind(d.type)}`:'choose a tenant'):a==='maint'?`${uf} › ${b} › Maintenance › ${d.supplier||'General'}`:`${uf} › ${b} › Other documents`}
+function vDocs(){const recent=[];S.tenants.forEach(t=>(t.docs||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===t.propId)||{}).short+' · '+t.unit+' – '+t.name,id:d.id})));
+ (S.docsLib||[]).forEach(d=>recent.push({at:d.added||0,name:d.name,type:d.kind,where:(S.properties.find(p=>p.id===d.propId)||{}).short+' · '+(d.area==='maint'?'Maintenance – '+(d.supplier||'General'):'Other documents'),id:d.id}));
+ recent.sort((a,b)=>b.at-a.at);const sp=typeof spSt==='function'?spSt().done:{};
+ $('#main').innerHTML=topbar('Documents')+`<div class="card"><b>Upload documents</b><p class="hint" style="margin:6px 0 10px">Select any documents (Emirates ID, passport, tenancy contract, cheque, supplier invoice …). The app reads each one, finds the tenant or supplier, and shows where it will go. Nothing is saved until you click <b>Approve and save</b>.</p>
+  <input type="file" id="dF" multiple accept="image/*,.pdf"><div id="dSt" class="hint" style="margin-top:8px"></div><div id="dQ"></div></div>
+  <div class="card"><b>Recent documents</b><div class="tw" style="margin-top:8px"><table class="t"><tr><th>Added</th><th>Document</th><th>Type</th><th>Filed under</th><th>SharePoint</th><th></th></tr>${recent.slice(0,100).map(r=>`<tr><td>${r.at?fd(new Date(r.at).toISOString().slice(0,10)):''}</td><td>${esc(r.name||'')}</td><td>${esc(r.type||'')}</td><td>${esc(r.where)}</td><td>${sp[r.id]&&sp[r.id]!=='existing'?'<span class="tag grn">Uploaded</span>':sp[r.id]==='existing'?'—':'<span class="hint">waiting</span>'}</td><td><button class="btn sm" data-open="${r.id}">Open</button></td></tr>`).join('')||'<tr><td colspan=6 class="hint">No documents yet.</td></tr>'}</table></div></div>`;
+ bindTop();drawDocQ();
+ $('#main').onclick=async e=>{const b=e.target.closest('[data-open]');if(b){const f=await IDB.get(b.dataset.open);if(!f){toast('File not found on this computer');return}const w=window.open();if(w)w.document.write(`<iframe src="${f.data}" style="border:0;width:100%;height:100%"></iframe>`)}};
+ $('#dF').onchange=async e=>{const F=[...e.target.files];if(!F.length)return;const st=$('#dSt');
+  for(const f of F){st.textContent='Reading '+f.name+'…';const txt=await docText(f);const type=docClassify(txt);const m=docMatch(txt);
+   const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});
+   const kind=type||(m?'Other tenant document':'Other building document');
+   DOCQ.push({qid:uid(),file:f,data,name:f.name,size:f.size,ftype:f.type,type:kind,propId:m?m.t.propId:S.cur,tid:m?m.t.id:'',why:m?m.why:'',supplier:docArea(kind)==='maint'?docSupplier(txt):'',read:!!txt.trim()})}
+  st.textContent='';e.target.value='';drawDocQ()}}
+function drawDocQ(){const box=$('#dQ');if(!box)return;if(!DOCQ.length){box.innerHTML='';return}
+ const sup=[...new Set((S.expenses||[]).map(e=>e.vendor).concat((S.docsLib||[]).map(d=>d.supplier)).filter(Boolean))];
+ box.innerHTML=`<datalist id="dSupL">${sup.map(s=>`<option value="${esc(s)}">`).join('')}</datalist><div class="tw" style="margin-top:10px"><table class="t"><tr><th>File</th><th>Type</th><th>Building</th><th>Tenant / Supplier</th><th>Will be filed in</th><th></th></tr>
+ ${DOCQ.map(d=>`<tr data-q="${d.qid}"><td>${esc(d.name)}<div class="hint">${!d.read?'Could not read — please choose':docArea(d.type)==='maint'?(d.supplier?'Supplier found on the document':'Supplier not found — type it'):docArea(d.type)==='tenant'?(d.why?'Matched by '+esc(d.why):'Tenant not found — please choose'):'Building document'}</div></td>
+  <td><select data-k="type">${DOC_TYPES.map(([k])=>`<option ${k===d.type?'selected':''}>${k}</option>`).join('')}</select></td>
+  <td><select data-k="propId">${S.properties.map(p=>`<option value="${p.id}" ${p.id===d.propId?'selected':''}>${esc(p.short||p.no)}</option>`).join('')}</select></td>
+  <td>${docArea(d.type)==='tenant'?`<select data-k="tid" style="max-width:260px">${docTenantOpts(d.propId,d.tid)}</select>`:docArea(d.type)==='maint'?`<input data-k="supplier" list="dSupL" value="${esc(d.supplier)}" placeholder="Supplier name">`:'—'}</td>
+  <td class="hint">${esc(docDest(d))}</td><td><button class="btn sm danger" data-rm>✕</button></td></tr>`).join('')}</table></div>
+ <div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" id="dOk">Approve and save (${DOCQ.length})</button><button class="btn" id="dClr">Clear</button></div>`;
+ box.querySelectorAll('tr[data-q]').forEach(tr=>{const d=DOCQ.find(x=>x.qid===tr.dataset.q);
+  tr.querySelectorAll('[data-k]').forEach(el=>el.onchange=()=>{d[el.dataset.k]=el.value;if(el.dataset.k==='propId')d.tid='';drawDocQ()});
+  tr.querySelector('[data-rm]').onclick=()=>{DOCQ=DOCQ.filter(x=>x!==d);drawDocQ()}});
+ $('#dClr').onclick=()=>{DOCQ=[];drawDocQ()};
+ $('#dOk').onclick=async()=>{const bad=DOCQ.find(d=>docArea(d.type)==='tenant'&&!d.tid);if(bad){toast('Choose the tenant for '+bad.name);return}
+  let n=0;for(const d of DOCQ){const id=uid();try{await IDB.put({id,docFile:true,name:d.name,type:d.ftype,data:d.data})}catch(_){toast('Could not save '+d.name);continue}
+   if(docArea(d.type)==='tenant'){const t=S.tenants.find(x=>x.id===d.tid);t.docs=t.docs||[];t.docs.push({id,name:d.name,type:d.ftype,size:d.size,kind:d.type==='Other tenant document'?'other':d.type,added:Date.now()})}
+   else{S.docsLib=S.docsLib||[];S.docsLib.push({id,propId:d.propId,area:docArea(d.type),supplier:d.supplier||'',name:d.name,kind:d.type,added:Date.now()})}n++}
+  DOCQ=[];save();toast(n+' document'+(n===1?'':'s')+' saved');vDocs()}}
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
