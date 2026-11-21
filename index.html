@@ -2841,8 +2841,39 @@ function mrRegister(){const p=prop(),E=mrRegList(),R=mtbRows(E),P=mtbPeriod(R),c
  <table style="border-collapse:collapse;width:100%"><tr>${['Date','Description','Person/Notes','Debit','Credit','Balance'].map(t=>`<th style="${c};font-weight:700;background:#d9e1f2;text-align:left">${t}</th>`).join('')}</tr>
  <tr><td style="${c}"></td><td style="${c};font-weight:700">OPENING BALANCE</td><td style="${c}"></td><td style="${c};text-align:right">0.00</td><td style="${c};text-align:right">0.00</td><td style="${c};text-align:right">0.00</td></tr>
  ${R.map(o=>`<tr><td style="${c};white-space:nowrap">${fd(o.date)}</td><td style="${c}">${esc(o.desc)}</td><td style="${c};white-space:nowrap">${esc(o.notes)}</td><td style="${c};text-align:right">${n(o.debit)}</td><td style="${c}"></td><td style="${c};text-align:right">${n(o.bal)}</td></tr>`).join('')}</table></div></div>`}
+let mdraft=null;
+function mrPage(){const p=prop(),us=units()||[],no=String(S.settings.mrNext||1000582);
+ if(!mdraft||mdraft.propId!==S.cur)mdraft={propId:S.cur,building:p.short||p.no,date:todayISO(),flat:'',lines:[{}]};const d=mdraft;
+ const host=$('#mrHost');if(!host)return;host.className='split';host.style.cssText='';
+ const F=[['desc','Description'],['ft','Failure type'],['act','Action'],['q','Quality/Type Brand/Make'],['qty','Quantity'],['ch','Charges (AED)'],['uc','Update changes'],['cm','Comments']];
+ host.innerHTML=`<div class="card"><div class="grid g2"><div><label>Receipt no</label><input id="mrR" readonly tabindex="-1" style="background:#f3f1ec;cursor:default" value="${esc(no)}"></div><div><label>Date</label><input type="date" id="mrD" value="${esc(d.date)}"></div>
+  <div><label>Building</label><input id="mrB" value="${esc(d.building)}"></div><div><label>Flat no</label><input id="mrF" list="mrFL" value="${esc(d.flat)}" placeholder="e.g. 303" autocomplete="off"><datalist id="mrFL">${us.map(u=>`<option value="${esc(u.unit)}">${esc(u.tenant||'')}</option>`).join('')}</datalist></div></div>
+  <div style="margin-top:12px"><label>Items</label><div id="mrLn"></div><button class="btn sm" id="mrAdd" style="margin-top:6px">+ Add line</button></div>
+  <div class="stats" id="mrTot" style="margin-top:12px"></div>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="mrSavePdf">Save &amp; PDF</button><button class="btn" id="mrSave">Save</button><button class="btn" id="mrClr">Clear</button></div>
+  <p class="hint">Each receipt is also added to Maintenance &amp; Expenses and to the Maintenance register.</p></div>
+  <div class="pv"><div id="mrPv"></div></div>`;
+ const tot=()=>{const s=Math.round(d.lines.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,v=Math.round(s*5)/100;return {sub:s,vat:v,total:Math.round((s+v)*100)/100}};
+ const prev=()=>{const pv=$('.pv',host),w=pv.clientWidth-30,sc=Math.min(1,w/794),t=tot();
+  $('#mrPv').innerHTML='<div class="pvin" style="width:210mm;transform:scale('+sc+');margin-bottom:'+(-1123*(1-sc))+'px">'+mrPaper({...d,no,lines:d.lines.filter(l=>l.desc||l.ch),...t},MR_LOGO||'',false)+'</div>';
+  $('#mrTot').innerHTML=`<div class="stat"><div class="k">Subtotal</div><div class="v">${mrN(t.sub)}</div></div><div class="stat"><div class="k">VAT 5%</div><div class="v">${mrN(t.vat)}</div></div><div class="stat"><div class="k">Grand total</div><div class="v">${mrN(t.total)}</div></div>`};
+ const lines=()=>{$('#mrLn').innerHTML=d.lines.map((l,i)=>`<div class="lnb"><div class="grid" style="grid-template-columns:2fr 1fr 1fr">
+   <div style="grid-column:1/-1"><label>Description</label><input data-i="${i}" data-f="desc" value="${esc(l.desc||'')}"></div>
+   ${F.slice(1).map(([k,t])=>`<div><label>${t}</label><input data-i="${i}" data-f="${k}" value="${esc(l[k]||'')}"${k==='ch'?' type="number" step="0.01"':''}></div>`).join('')}</div>
+   ${d.lines.length>1?`<button class="btn sm danger" data-rm="${i}" style="margin-top:6px">Remove line</button>`:''}</div>`).join('')};
+ lines();mrLogo().then(prev);prev();
+ host.addEventListener('input',e=>{const t=e.target;if(t.dataset.f){d.lines[+t.dataset.i][t.dataset.f]=t.value}else if(t.id==='mrD')d.date=t.value;else if(t.id==='mrB')d.building=t.value;else if(t.id==='mrF')d.flat=t.value;prev()});
+ host.addEventListener('click',e=>{const rm=e.target.closest('[data-rm]');if(rm){d.lines.splice(+rm.dataset.rm,1);lines();prev()}});
+ $('#mrAdd').onclick=()=>{d.lines.push({});lines();prev()};$('#mrClr').onclick=()=>{mdraft=null;mrPage()};
+ const doSave=async pdf=>{const L=d.lines.map(l=>{const o={};F.forEach(([k])=>o[k]=String(l[k]||'').trim());return o}).filter(l=>l.desc||l.ch);
+  if(!L.length){toast('Add at least one item');return}if(!d.flat.trim()){toast('Enter the flat no');return}
+  const n=+S.settings.mrNext||1000582,t=(()=>{const s=Math.round(L.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,v=Math.round(s*5)/100;return {sub:s,vat:v,total:Math.round((s+v)*100)/100}})();
+  const r={id:uid(),propId:S.cur,no:String(n),building:d.building.trim(),date:d.date,flat:d.flat.trim(),lines:L,...t,created:Date.now()};
+  S.mrcpts=S.mrcpts||[];S.mrcpts.push(r);S.settings.mrNext=n+1;S.expenses=S.expenses||[];S.expenses.push({id:uid(),propId:r.propId,date:r.date,unit:r.flat,category:'Maintenance – General',desc:r.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+r.no,amount:r.sub,vat:r.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],mrId:r.id});
+  save();mdraft=null;render();if(pdf)await mrPDF(r);toast('Maintenance receipt '+r.no+' saved')};
+ $('#mrSavePdf').onclick=()=>doSave(true);$('#mrSave').onclick=()=>doSave(false)}
 let mview='new';
-function vMrc(){$('#main').innerHTML=topbar('Maintenance Receipt',`<button class="btn ${mview==='new'?'pri':''}" id="mN">New receipt</button><button class="btn ${mview==='reg'?'pri':''}" id="mR">Register</button>`)+(mview==='new'?`<div class="card" id="mrHost"></div>`:`<div style="display:flex;justify-content:flex-end"><button class="btn" id="eMrI">Import receipts folder</button></div>${mrList()}${mrRegister()}`);bindTop();$('#mN').onclick=()=>{mview='new';vMrc()};$('#mR').onclick=()=>{mview='reg';vMrc()};if(mview==='new')mrForm(true);else{$('#eMrI').onclick=mrImport;$('#mrRegX').onclick=()=>exportExp(mrRegList())}
+function vMrc(){$('#main').innerHTML=topbar('Maintenance Receipt',`<button class="btn ${mview==='new'?'pri':''}" id="mN">New receipt</button><button class="btn ${mview==='reg'?'pri':''}" id="mR">Register</button>`)+(mview==='new'?`<div class="card" id="mrHost"></div>`:`<div style="display:flex;justify-content:flex-end"><button class="btn" id="eMrI">Import receipts folder</button></div>${mrList()}${mrRegister()}`);bindTop();$('#mN').onclick=()=>{mview='new';vMrc()};$('#mR').onclick=()=>{mview='reg';vMrc()};if(mview==='new')mrPage();else{$('#eMrI').onclick=mrImport;$('#mrRegX').onclick=()=>exportExp(mrRegList())}
  const M=$('#main');if(!M._mrcL){M._mrcL=1;M.addEventListener('click',e=>{if(tab!=='mrc')return;const b=e.target.closest('[data-mrd]');if(b){const r=(S.mrcpts||[]).find(x=>x.id===b.dataset.mrd);if(r)mrDocx(r)}const bp=e.target.closest('[data-mrp]');if(bp){const r=(S.mrcpts||[]).find(x=>x.id===bp.dataset.mrp);if(r)mrPDF(r)}})}}
 function vExp(){
  $('#main').innerHTML=topbar('Maintenance & Expenses',`<button class="btn pri" id="eAdd">+ Add expense</button><button class="btn" id="eCopy">Copy for Excel</button><button class="btn" id="eExp">Export Excel</button>`)+`
