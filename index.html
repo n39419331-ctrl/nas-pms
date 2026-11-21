@@ -3110,6 +3110,108 @@ function vAct(){const L=(S.activity||[]).slice().reverse().filter(a=>(actP==='al
  $('#main').innerHTML=topbar('Activity',`<button class="btn" id="aRec">Recover cheques from backup</button>`)+`<div class="card"><div class="bar"><input type="search" id="aq" placeholder="Search activity" value="${esc(actQ)}"><select id="ap"><option value="cur" ${actP==='cur'?'selected':''}>This building</option><option value="all" ${actP==='all'?'selected':''}>All buildings</option></select><label>From</label><input type="date" id="af" value="${actFrom}"><label>To</label><input type="date" id="at" value="${actTo}"><span class="hint">${L.length} entries</span></div>
  <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}${a.dd?(a.restored||actHas(a)?' <span class="hint">· restored</span>':` <button class="btn sm" data-ares="${(S.activity||[]).indexOf(a)}">Restore</button>`):''}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
  bindTop();$('#aRec').onclick=chqRecoverFromBackup;$('#main').onclick=e=>{const b=e.target.closest('[data-ares]');if(b)actRestore(+b.dataset.ares)};$('#aq').oninput=e=>{actQ=e.target.value;const ps=e.target.selectionStart;vAct();const i=$('#aq');i.focus();i.setSelectionRange(ps,ps)};$('#ap').onchange=e=>{actP=e.target.value;vAct()};$('#af').onchange=e=>{actFrom=e.target.value;vAct()};$('#at').onchange=e=>{actTo=e.target.value;vAct()}}
+/* ================= Shared data (all users) — one set of data kept in SharePoint › App Data ================= */
+const CL={dir:()=>SP_CFG.root+'/App Data',file:()=>SP_CFG.root+'/App Data/nas_pms_data.json',busy:false,timer:null,etag:'',base:null,lastSync:null,err:'',pendingRender:false,started:false};
+const CL_PROTECT=['tenants','receipts','cheques','expenses','mrcpts','docsLib','properties'];
+const CKV={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{const r=indexedDB.open('nas_pms_cloud',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))},
+ async get(k){const db=await this.open();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})},
+ async set(k,v){const db=await this.open();return new Promise((res,rej)=>{const tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}};
+const clLS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(_){return null}};
+const clOnLocal=()=>clLS('nas_cloud_on')==='1';
+const clMe=()=>((typeof SPX!=='undefined'&&SPX.acct&&SPX.acct.username)||'').toLowerCase();
+const clOwners=()=>((S.settings&&S.settings.owners)||[]).map(x=>String(x).toLowerCase().trim()).filter(Boolean);
+const clIsOwner=()=>{const o=clOwners();return !clOnLocal()||!o.length||o.includes(clMe())};
+const clJ=v=>v===undefined?'\u0000':JSON.stringify(v);
+const clIsObj=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+const clKey=o=>clIsObj(o)&&o.id!=null?'i:'+o.id:clIsObj(o)&&o.unit!=null?'u:'+o.unit:'j:'+JSON.stringify(o);
+/* what is shared: everything except this computer's own view settings */
+function clPayload(){const o=JSON.parse(JSON.stringify(S));delete o.cur;if(o.settings){delete o.settings.dark;delete o.settings.theme;if(o.settings.sp){delete o.settings.sp.pending;delete o.settings.sp.last;delete o.settings.sp.lastChunk}}return o}
+function clApply(data){const s0=S.settings||{},sp0=s0.sp||{},cur=S.cur;S=data;S.settings=S.settings||{};
+ S.cur=cur&&(S.properties||[]).some(p=>p.id===cur)?cur:((S.properties||[])[0]||{}).id;
+ if(s0.dark!==undefined)S.settings.dark=s0.dark;if(s0.theme!==undefined)S.settings.theme=s0.theme;
+ S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}};['pending','last','lastChunk'].forEach(k=>{if(sp0[k]!==undefined)S.settings.sp[k]=sp0[k]});
+ try{localStorage.setItem(KEY,JSON.stringify(S))}catch(_){}try{ACT_SNAP=actKeyed()}catch(_){}}
+/* three-way merge: base = last shared copy this computer saw, l = this computer, r = SharePoint now */
+function clMerge(b,l,r,path){const jb=clJ(b),jl=clJ(l),jr=clJ(r);
+ if(jl===jb)return r;if(jr===jb||jl===jr)return l;
+ if(Array.isArray(l)&&Array.isArray(r)){const B=new Map((Array.isArray(b)?b:[]).map(x=>[clKey(x),x])),L=new Map(l.map(x=>[clKey(x),x])),R=new Map(r.map(x=>[clKey(x),x])),out=[],seen=new Set();
+  const one=k=>{const inB=B.has(k),inL=L.has(k),inR=R.has(k);
+   if(inL&&inR)return clMerge(B.get(k),L.get(k),R.get(k),path+'[]');
+   if(inL)return inB&&clJ(L.get(k))===clJ(B.get(k))?undefined:L.get(k);   // deleted by someone else
+   if(inR)return inB&&clJ(R.get(k))===clJ(B.get(k))?undefined:R.get(k);   // deleted here
+   return undefined};
+  for(const k of [...R.keys(),...L.keys()]){if(seen.has(k))continue;seen.add(k);const v=one(k);if(v!==undefined)out.push(v)}return out}
+ if(clIsObj(l)&&clIsObj(r)){const bb=clIsObj(b)?b:{},out={};
+  for(const k of new Set([...Object.keys(bb),...Object.keys(l),...Object.keys(r)])){let v;
+   if((k==='nextReceipt'||k==='mrNext')&&l[k]!=null&&r[k]!=null)v=Math.max(+l[k]||0,+r[k]||0);else v=clMerge(bb[k],l[k],r[k],path?path+'.'+k:k);
+   if(v!==undefined)out[k]=v}return out}
+ return l}
+/* staff cannot delete: anything they removed is put back */
+function clProtect(b,l,r){if(clIsOwner()||!b)return 0;let n=0;
+ for(const c of CL_PROTECT){const B=b[c],L=l[c];if(!Array.isArray(B)||!Array.isArray(L))continue;const have=new Set(L.map(clKey)),R=new Map(((r&&r[c])||[]).map(x=>[clKey(x),x]));
+  for(const x of B){const k=clKey(x);if(!have.has(k)&&R.has(k)){L.push(R.get(k));n++}}}
+ l.settings=l.settings||{};l.settings.owners=(r&&r.settings&&r.settings.owners)||l.settings.owners;return n}
+async function clMeta(){return gf('/drives/'+SPX.drive+'/root:/'+spEnc(CL.file()))}
+async function clDownload(meta){const res=await fetch(meta['@microsoft.graph.downloadUrl']);if(!res.ok)throw new Error('Could not read the shared data ('+res.status+')');return res.json()}
+/* upload; etag: only if SharePoint still has that version (else returns null = someone saved first) */
+async function clPutBlob(full,blob,etag,create){const t=await spToken(),base='https://graph.microsoft.com/v1.0/drives/'+SPX.drive+'/root:/'+spEnc(full),hd=etag?{'If-Match':etag}:{};
+ if(blob.size<=4*1024*1024){const res=await fetch(base+':/content'+(create?'?@microsoft.graph.conflictBehavior=fail':''),{method:'PUT',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json',...hd},body:blob});
+  if(res.status===412||res.status===409)return null;if(!res.ok)throw new Error('SharePoint '+res.status);return res.json()}
+ const s=await fetch(base+':/createUploadSession',{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json',...hd},body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':create?'fail':'replace'}})});
+ if(s.status===412||s.status===409)return null;if(!s.ok)throw new Error('SharePoint '+s.status);const {uploadUrl}=await s.json();
+ const CH=5*1024*1024;let last=null;for(let o=0;o<blob.size;o+=CH){const part=blob.slice(o,Math.min(o+CH,blob.size));const r=await fetch(uploadUrl,{method:'PUT',headers:{'Content-Range':`bytes ${o}-${o+part.size-1}/${blob.size}`},body:part});if(r.status===412||r.status===409)return null;if(!r.ok)throw new Error('Upload failed '+r.status);last=await r.json().catch(()=>({}))}return last}
+async function clSetBase(json,etag){CL.base=JSON.parse(json);CL.etag=etag||'';clLS('nas_cloud_etag',CL.etag);try{await CKV.set('base',json)}catch(e){console.error(e)}}
+async function clSync(){if(!clOnLocal()||!spOn())return;if(CL.busy){CL.again=true;return}CL.busy=true;let rev=0,changed=false;
+ try{for(let tries=0;tries<5;tries++){const meta=await clMeta();if(!meta)throw new Error('Shared data file not found in SharePoint › App Data');
+   const remote=meta.eTag===CL.etag&&CL.base?JSON.parse(JSON.stringify(CL.base)):await clDownload(meta),base=CL.base||remote,local=clPayload(),jl0=JSON.stringify(local);
+   rev+=clProtect(base,local,remote);const merged=clMerge(base,local,remote,''),jm=JSON.stringify(merged);
+   if(jm!==jl0){clApply(JSON.parse(jm));changed=true}
+   if(jm!==JSON.stringify(remote)){const res=await clPutBlob(CL.file(),new Blob([jm],{type:'application/json'}),meta.eTag,false);if(!res)continue;await clSetBase(jm,res.eTag);clDaily(jm)}else await clSetBase(jm,meta.eTag);
+   CL.err='';CL.lastSync=new Date();break}}
+ catch(e){console.error(e);CL.err=e.message||'Sync failed'}
+ finally{CL.busy=false;if(rev)toast('Only the owner can delete — '+rev+' item(s) were kept');if(changed)clRender();clBadge();if(CL.again){CL.again=false;clSchedule(600)}}}
+async function clDaily(json){const d=todayISO();if(clLS('nas_cloud_bk')===d)return;clLS('nas_cloud_bk',d);
+ try{const x=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(CL.dir()+'/Backups/nas_pms_data_'+d+'.json'));if(x)return;await spCreate(new Set([CL.dir()+'/Backups']));await clPutBlob(CL.dir()+'/Backups/nas_pms_data_'+d+'.json',new Blob([json],{type:'application/json'}),null,false)}catch(e){console.error(e)}}
+function clSchedule(ms){clearTimeout(CL.timer);CL.timer=setTimeout(clSync,ms)}
+function clRender(){const ae=document.activeElement,busy=document.querySelector('.modal')||(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)),form=(tab==='rcpt'&&rview==='new')||(tab==='mrc'&&mview==='new');
+ if(busy||form){CL.pendingRender=true;return}CL.pendingRender=false;render()}
+function clBadge(){const e=document.getElementById('clBadge');if(e)e.innerHTML=clBadgeHtml()}
+function clBadgeHtml(){if(!clOnLocal())return 'Off — the data is only in this browser.';
+ return `On · you are <b>${clIsOwner()?'Owner':'Staff'}</b> (${esc(clMe()||'not signed in')})${CL.lastSync?' · last sync '+CL.lastSync.toLocaleTimeString():''}${CL.err?' · <span style="color:var(--red)">'+esc(CL.err)+'</span>':''}${!spOn()?' · <span style="color:var(--red)">sign in to SharePoint to sync</span>':''}`}
+function clCard(){const on=clOnLocal();return `<div class="card"><b>Shared data (all users)</b><p class="hint" style="margin:6px 0">Everyone signs in with their Microsoft 365 account and works on the same data, kept in SharePoint › App Data. Staff cannot delete anything — only owners can. A copy is saved in App Data › Backups every day.</p><div id="clBadge" class="hint">${clBadgeHtml()}</div>
+ <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${!on?(spOn()?'<button class="btn pri" onclick="clEnable()">Start / join shared data</button>':'<span class="hint">Connect to SharePoint first (above).</span>'):`<button class="btn" onclick="clSync()">Sync now</button>${clIsOwner()?'<button class="btn" onclick="clOwnersForm()">Owners</button>':''}<button class="btn" onclick="clDisable()">Stop on this computer</button>`}</div></div>`}
+async function clEnable(){if(!spOn()){toast('Connect to SharePoint first');return}
+ try{await spCreate(new Set([CL.dir()]));const meta=await clMeta();
+  if(!meta){if(!confirm('Start shared data from the data in this browser? You ('+clMe()+') will be the owner.'))return;
+   S.settings.owners=[clMe()];save();const jm=JSON.stringify(clPayload());const res=await clPutBlob(CL.file(),new Blob([jm],{type:'application/json'}),null,true);if(!res)throw new Error('Someone else just started it — click again to join');
+   await clSetBase(jm,res.eTag);clLS('nas_cloud_on','1');actLog('Shared data started by '+clMe());toast('Shared data is on — uploading attachments');clFilesPush(true)}
+  else{if(!confirm('Shared data already exists in SharePoint. Use it on this computer? The data now in this browser is downloaded as a backup file first.'))return;
+   let files=[];try{files=await IDB.all()}catch(_){}const b=new Blob([JSON.stringify({...S,_files:files})],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='nas_pms_backup_before_shared_'+todayISO()+'.json';a.click();
+   const remote=await clDownload(meta);clApply(JSON.parse(JSON.stringify(remote)));await clSetBase(JSON.stringify(remote),meta.eTag);clLS('nas_cloud_on','1');toast('Shared data is on')}
+  clStart();render()}catch(e){console.error(e);toast(e.message||'Could not start shared data')}}
+function clDisable(){if(!confirm('Stop shared data on this computer? The data stays in this browser but no longer syncs.'))return;clLS('nas_cloud_on',null);render();toast('Shared data stopped on this computer')}
+function clOwnersForm(){if(!clIsOwner())return;const o=modal(`<h3>Owners</h3><p class="hint">Owners can delete. Everyone else is staff. One Microsoft 365 email per line.</p><textarea id="clOw" rows="5" style="width:100%">${esc(clOwners().join('\n'))}</textarea><div style="margin-top:10px"><button class="btn pri" id="clOk">Save</button></div>`,null);
+ $('#clOk',o).onclick=()=>{const L=$('#clOw',o).value.split(/[\n,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);if(!L.includes(clMe())&&!confirm('You are not in the list — you will become staff. Continue?'))return;S.settings.owners=L;actLog('Owners changed: '+L.join(', '));save();o.remove();render()}}
+/* attachments: uploaded once to App Data › Files, fetched by the other users when they open them */
+const clFilePath=id=>CL.dir()+'/Files/'+spClean(id)+'.json';
+const IDB_get0=IDB.get.bind(IDB),IDB_put0=IDB.put.bind(IDB);
+IDB.get=async function(id){let r=null;try{r=await IDB_get0(id)}catch(_){}if(r||!id||!clOnLocal()||!spOn())return r||null;
+ try{const m=await gf('/drives/'+SPX.drive+'/root:/'+spEnc(clFilePath(id)));if(!m)return null;const res=await fetch(m['@microsoft.graph.downloadUrl']);if(!res.ok)return null;const rec=await res.json();await IDB_put0(rec);return rec}catch(e){console.error(e);return null}};
+IDB.put=async function(rec){const x=await IDB_put0(rec);if(clOnLocal()&&rec&&rec.id){(CL.fq=CL.fq||new Set()).add(rec.id);clearTimeout(CL.ft);CL.ft=setTimeout(()=>clFilesPush(false),3000)}return x};
+async function clFilesPush(all){if(!clOnLocal()||!spOn())return;if(CL.fbusy){CL.fagain=true;return}CL.fbusy=true;
+ try{let done={};try{done=JSON.parse(clLS('nas_cloud_files')||'{}')}catch(_){}let ids=[...(CL.fq||[])];CL.fq=new Set();
+  if(all)ids=(await IDB.all()).map(r=>r.id);const js=JSON.stringify(S);ids=[...new Set(ids)].filter(id=>id&&!done[id]&&js.includes('"'+id+'"'));if(!ids.length)return;
+  await spCreate(new Set([CL.dir()+'/Files']));let n=0;
+  for(const id of ids){const rec=await IDB_get0(id).catch(()=>null);if(!rec){done[id]=1;continue}
+   try{await clPutBlob(clFilePath(id),new Blob([JSON.stringify(rec)],{type:'application/json'}),null,false);done[id]=1;n++;if(n%10===0){clLS('nas_cloud_files',JSON.stringify(done));if(all)toast('Attachments uploaded: '+n+' of '+ids.length)}}catch(e){console.error(e)}}
+  clLS('nas_cloud_files',JSON.stringify(done));if(all&&n)toast('Attachments uploaded: '+n)}
+ finally{CL.fbusy=false;if(CL.fagain){CL.fagain=false;setTimeout(()=>clFilesPush(false),1000)}}}
+function clStart(){if(CL.started)return;CL.started=true;clSync();setInterval(clSync,20000);window.addEventListener('focus',()=>clSync())}
+(function clHook(){const o=save;save=function(){const r=o.apply(this,arguments);if(clOnLocal())clSchedule(2500);return r};
+ const v0=vSet;vSet=function(){v0.apply(this,arguments);if(clOnLocal()&&!clIsOwner())['rz','rs'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none'})};
+ (async()=>{if(!clOnLocal())return;try{const s=await CKV.get('base');if(s)CL.base=JSON.parse(s);CL.etag=clLS('nas_cloud_etag')||''}catch(_){}})();
+ let warned=false,t0=Date.now();setInterval(()=>{if(!clOnLocal())return;if(spOn()&&!CL.started)clStart();if(CL.pendingRender)clRender();
+  if(!spOn()&&!warned&&Date.now()-t0>15000){warned=true;toast('Shared data: sign in to SharePoint in Settings to sync')}},3000)})();
 /* ================= Documents — upload any document; the app reads it and files it in the right place ================= */
 const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Power of attorney','owner'],['Land site plan / title deed','owner'],['Owner ID / passport','owner'],['Owner agreement / contract','owner'],['Other building document','other']];
 const docArea=k=>(DOC_TYPES.find(x=>x[0]===k)||[,'other'])[1];
@@ -3247,7 +3349,7 @@ function mrImportReview(R){const ok=R.filter(r=>!r.err&&!r.dup),p=prop();const o
   const mx=Math.max(0,...S.mrcpts.map(x=>+x.no||0));if(mx>=(+S.settings.mrNext||1000582))S.settings.mrNext=mx+1;
   save();o.remove();render();toast(n+' maintenance receipt'+(n===1?'':'s')+' imported')}}
 function vSet(){
-  $('#main').innerHTML=topbar('Settings')+spCard()+`
+  $('#main').innerHTML=topbar('Settings')+spCard()+clCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
   <div class="card"><b>Management fee (Rent Collection)</b><div class="grid g3" style="margin-top:10px"><div><label>Management fee %</label><input id="fp" type="number" step="0.01" value="${esc(S.settings.feePct)}"></div><div><label>VAT %</label><input id="vp" type="number" step="0.01" value="${esc(S.settings.vatPct)}"></div>
    <div><label>VAT treatment</label><select id="vm"><option value="none" ${S.settings.vatMode==='none'?'selected':''}>No VAT on this fee</option><option value="incl" ${S.settings.vatMode==='incl'?'selected':''}>Fee already includes VAT</option><option value="excl" ${S.settings.vatMode==='excl'?'selected':''}>VAT added on top of fee</option></select></div></div>
