@@ -1690,10 +1690,10 @@ async function copyPDC(C){const G=pdcGroups(C);if(!G.length){toast('No cheques t
  const html='<html><head><meta charset="utf-8"></head><body><table style="border-collapse:collapse">'+rows.join('')+'</table></body></html>',t=txt.join('\n');
  let ok=false;try{await navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([t],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]);ok=true}catch(e){try{await navigator.clipboard.writeText(t);ok=true}catch(e2){}}
  toast(ok?C.length+' payments copied (columns A–U) — click cell A19 (first row under the headers) in your Excel and paste (Ctrl+V)':'Your browser blocked copying — use Export Excel')}
-async function exportPDC(C){
- try{const p=prop(),G=pdcGroups(C),z=await JSZip.loadAsync(tplBytes('a_tpl_pdc'));let x=await z.file('xl/worksheets/sheet1.xml').async('string');
+async function buildPDC(C,pid){const z=await JSZip.loadAsync(tplBytes('a_tpl_pdc'));let x=await z.file('xl/worksheets/sheet1.xml').async('string');const sx0=await z.file('xl/styles.xml').async('string');const old=S.cur;if(pid)S.cur=pid;
+ try{const p=prop(),G=pdcGroups(C);
   // yellow (fill 3) and blue (fill 7) copies of the template's green cheque styles 57..61
-  let sx=await z.file('xl/styles.xml').async('string');const XF=[...sx.match(/<cellXfs[^>]*>(.*?)<\/cellXfs>/s)[1].matchAll(/<xf [^>]*?(?:\/>|>.*?<\/xf>)/gs)].map(m=>m[0]),n0=XF.length,YEL={},BLU={};let xadd='';
+  let sx=sx0;const XF=[...sx.match(/<cellXfs[^>]*>(.*?)<\/cellXfs>/s)[1].matchAll(/<xf [^>]*?(?:\/>|>.*?<\/xf>)/gs)].map(m=>m[0]),n0=XF.length,YEL={},BLU={};let xadd='';
   [[YEL,3],[BLU,7]].forEach(([M,fid],q)=>[57,58,59,60,61].forEach((s0,w)=>{M[s0]=n0+q*5+w;xadd+=XF[s0].replace(/fillId="\d+"/,'fillId="'+fid+'"')}));
   sx=sx.replace(/<cellXfs count="\d+">(.*?)<\/cellXfs>/s,(m,inner)=>`<cellXfs count="${n0+10}">${inner}${xadd}</cellXfs>`);z.file('xl/styles.xml',sx,{createFolders:false});
   const ds=C.map(c=>c.chqDate).filter(Boolean).sort();
@@ -1710,8 +1710,8 @@ async function exportPDC(C){
   x=x.replace(/<mergeCells count="(\d+)">(.*?)<\/mergeCells>/s,(m,n,inner)=>{const all=inner+merges.map(m=>`<mergeCell ref="${m}"/>`).join('');return `<mergeCells count="${+n+merges.length}">${all}</mergeCells>`});
   x=x.replace(/<dimension ref="[^"]*"\/>/,`<dimension ref="A1:V${last}"/>`);
   z.file('xl/worksheets/sheet1.xml',x,{createFolders:false});
-  await saveXlsx(z,'Property_Unit_Status_and_Tenant_Payment_Schedule_'+fsafe(p.short||p.no)+'_'+fd(todayISO()).replace(/\//g,'.')+'.xlsx');toast('Excel exported')
- }catch(e){console.error(e);toast('Could not create the Excel file')}}
+  return {z,name:'Property_Unit_Status_and_Tenant_Payment_Schedule_'+fsafe(p.short||p.no)+'_'+fd(todayISO()).replace(/\//g,'.')+'.xlsx'}}finally{S.cur=old}}
+async function exportPDC(C){try{const {z,name}=await buildPDC(C);await saveXlsx(z,name);toast('Excel exported')}catch(e){console.error(e);toast('Could not create the Excel file')}}
 function chqForm(c){
   const n=c?{...c}:{id:uid(),propId:S.cur,chqNo:'',bank:'',payer:'',unit:'',amount:'',chqDate:'',receivedDate:todayISO(),receiptNo:'',status:'Received',depositDate:'',clearedDate:'',note:''};
   const f=(k,l,t='text')=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(n[k])}"></div>`;
@@ -3243,6 +3243,38 @@ function clStart(){if(CL.started)return;CL.started=true;clSync();setInterval(clS
  (async()=>{if(!clOnLocal())return;try{const s=await CKV.get('base');if(s)CL.base=JSON.parse(s);CL.etag=clLS('nas_cloud_etag')||''}catch(_){}})();
  let warned=false,t0=Date.now();setInterval(()=>{if(!clOnLocal())return;if(spOn()&&!CL.started)clStart();if(CL.pendingRender)clRender();
   if(!spOn()&&!warned&&Date.now()-t0>15000){warned=true;toast('Shared data: sign in to SharePoint in Settings to sync')}},3000)})();
+/* ================= PDC Excel in SharePoint — updated automatically when cheques change ================= */
+const PDCX={timer:null,fp:{},q:new Set(),busy:false,ready:false};
+const pdcCheques=pid=>(S.cheques||[]).filter(c=>c.propId===pid&&(c.method||'Cheque')==='Cheque');
+const pdcFp=pid=>JSON.stringify(pdcCheques(pid).map(c=>[c.id,c.chqNo,c.amount,c.chqDate,c.status,c.unit,c.payer,c.bank,c.depositDate,c.clearedDate,c.receiptNo,c.note]));
+const pdcSt=()=>{S.settings.pdcX=S.settings.pdcX||{};return S.settings.pdcX};
+const pdcAutoOn=()=>S.settings.pdcAuto!==false;
+async function pdcUpload(pid){if(!spOn())throw new Error('Connect to SharePoint first');const p=S.properties.find(x=>x.id===pid);if(!p)return;
+ const {z}=await buildPDC(pdcCheques(pid),pid),blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'});
+ const t=pdcSt()[pid];let r=null;
+ if(t&&t.id){const tk=await spToken(),res=await fetch('https://graph.microsoft.com/v1.0/drives/'+SPX.drive+'/items/'+t.id+'/content',{method:'PUT',headers:{Authorization:'Bearer '+tk},body:blob});
+  if(res.status===423||res.status===409){toast('PDC Excel "'+t.name+'" is open in Excel — it updates on the next cheque change, or click Update now after closing it');return}
+  if(res.status===404)delete pdcSt()[pid];else if(!res.ok)throw new Error('SharePoint '+res.status);else r=await res.json()}
+ if(!r){const need=new Set(),path=await spResolve(spSegs({propId:pid,area:'excel'}),need);if(need.size)await spCreate(need);r=await spPut(path,'PDC '+(p.short||p.no)+'.xlsx',blob);pdcSt()[pid]={id:r&&r.id,name:(r&&r.name)||spClean('PDC '+(p.short||p.no)+'.xlsx'),webUrl:r&&r.webUrl}}
+ actLog('PDC Excel updated in SharePoint ('+(pdcSt()[pid]||{}).name+')',pid);save()}
+function pdcCheck(){if(!PDCX.ready)return;(S.properties||[]).forEach(p=>{const f=pdcFp(p.id);if(PDCX.fp[p.id]!==f){PDCX.fp[p.id]=f;if(pdcAutoOn()&&spOn())PDCX.q.add(p.id)}});if(PDCX.q.size){clearTimeout(PDCX.timer);PDCX.timer=setTimeout(pdcRun,5000)}}
+async function pdcRun(){if(PDCX.busy){clearTimeout(PDCX.timer);PDCX.timer=setTimeout(pdcRun,3000);return}PDCX.busy=true;
+ try{for(const pid of [...PDCX.q]){PDCX.q.delete(pid);try{await pdcUpload(pid)}catch(e){console.error(e);toast('PDC Excel: '+(e.message||'upload failed'))}}}finally{PDCX.busy=false}}
+(function pdcHook(){const o=save;save=function(){const r=o.apply(this,arguments);try{pdcCheck()}catch(e){console.error(e)}return r};
+ setTimeout(()=>{try{(S.properties||[]).forEach(p=>PDCX.fp[p.id]=pdcFp(p.id))}catch(_){}PDCX.ready=true},4500)})();
+function pdcCard(){const t=pdcSt()[S.cur],p=prop();return `<div class="card"><b>PDC Excel in SharePoint — ${esc(p.short||p.no)}</b><p class="hint" style="margin:6px 0">When a cheque is added or changed (a receipt with cheques, deposited, cleared…), the app rewrites this building's PDC Excel in SharePoint. Older versions stay in the file's Version history.</p>
+ <div class="hint">${t?`Connected file: <b>${esc(t.name)}</b>${t.webUrl?` · <a href="${esc(t.webUrl)}" target="_blank" rel="noopener">Open</a>`:''}`:'No file connected yet — the first update creates <b>PDC '+esc(p.short||p.no)+'.xlsx</b> in this building\'s Excel reports folder.'}</div>
+ <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" style="width:auto" ${pdcAutoOn()?'checked':''} onchange="S.settings.pdcAuto=this.checked;save()"> Update automatically</label>
+ <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${spOn()?`<button class="btn" onclick="pdcPick()">Connect existing Excel</button><button class="btn" onclick="pdcUpload(S.cur).then(()=>{toast('PDC Excel updated');render()}).catch(e=>toast(e.message))">Update now</button>${t?'<button class="btn" onclick="delete pdcSt()[S.cur];save();render()">Disconnect</button>':''}`:'<span class="hint">Connect to SharePoint first (above).</span>'}</div></div>`}
+async function pdcPick(){const pid=S.cur,p=prop(),o=modal(`<h3>Connect existing PDC Excel — ${esc(p.short||p.no)}</h3><div class="bar"><input type="search" id="pkq" value="PDC" placeholder="Search SharePoint by file name"><button class="btn" id="pkGo">Search</button></div><div id="pkL" class="hint" style="margin-top:10px">Searching…</div>`,null);$('.modal',o).style.width='min(900px,100%)';
+ const run=async()=>{$('#pkL',o).textContent='Searching…';try{const q=$('#pkq',o).value.trim().replace(/'/g,"''")||'PDC';const r=await gf("/drives/"+SPX.drive+"/root/search(q='"+encodeURIComponent(q)+"')?$top=200");
+  const F=((r&&r.value)||[]).filter(f=>f.file&&/\.xlsx$/i.test(f.name));
+  $('#pkL',o).innerHTML=F.length?`<div class="tw"><table class="t"><tr><th>File</th><th>Folder</th><th></th></tr>${F.map((f,i)=>`<tr><td>${esc(f.name)}</td><td class="hint">${esc(decodeURIComponent(((f.parentReference||{}).path||'').replace(/^\/drives\/[^/]+\/root:?/,''))||'')}</td><td><button class="btn sm pri" data-pk="${i}">Use this</button></td></tr>`).join('')}</table></div>`:'No .xlsx files found — try another word (e.g. 891 or payment).';
+  $('#pkL',o).onclick=async e=>{const b=e.target.closest('[data-pk]');if(!b)return;const f=F[+b.dataset.pk];
+   if(!confirm('Connect "'+f.name+'"?\n\nThe app will now replace its content with the PDC report from the app, and again every time cheques change. Older versions stay in SharePoint Version history.'))return;
+   pdcSt()[pid]={id:f.id,name:f.name,webUrl:f.webUrl};save();o.remove();try{await pdcUpload(pid);toast('Connected and updated: '+f.name)}catch(err){toast(err.message)}render()}}
+ catch(e){console.error(e);$('#pkL',o).textContent=e.message||'Search failed'}};
+ $('#pkGo',o).onclick=run;$('#pkq',o).onkeydown=e=>{if(e.key==='Enter')run()};run()}
 /* ================= Documents — upload any document; the app reads it and files it in the right place ================= */
 const DOC_TYPES=[['Emirates ID','tenant'],['Passport','tenant'],['Tenancy contract','tenant'],['Cheque copy','tenant'],['Renewal slip','tenant'],['Receipt','tenant'],['Offer letter','tenant'],['Other tenant document','tenant'],['Supplier invoice / quotation','maint'],['Power of attorney','owner'],['Land site plan / title deed','owner'],['Owner ID / passport','owner'],['Owner agreement / contract','owner'],['Other building document','other']];
 const docArea=k=>(DOC_TYPES.find(x=>x[0]===k)||[,'other'])[1];
@@ -3380,7 +3412,7 @@ function mrImportReview(R){const ok=R.filter(r=>!r.err&&!r.dup),p=prop();const o
   const mx=Math.max(0,...S.mrcpts.map(x=>+x.no||0));if(mx>=(+S.settings.mrNext||1000582))S.settings.mrNext=mx+1;
   save();o.remove();render();toast(n+' maintenance receipt'+(n===1?'':'s')+' imported')}}
 function vSet(){
-  $('#main').innerHTML=topbar('Settings')+spCard()+clCard()+`
+  $('#main').innerHTML=topbar('Settings')+spCard()+pdcCard()+clCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
   <div class="card"><b>Management fee (Rent Collection)</b><div class="grid g3" style="margin-top:10px"><div><label>Management fee %</label><input id="fp" type="number" step="0.01" value="${esc(S.settings.feePct)}"></div><div><label>VAT %</label><input id="vp" type="number" step="0.01" value="${esc(S.settings.vatPct)}"></div>
    <div><label>VAT treatment</label><select id="vm"><option value="none" ${S.settings.vatMode==='none'?'selected':''}>No VAT on this fee</option><option value="incl" ${S.settings.vatMode==='incl'?'selected':''}>Fee already includes VAT</option><option value="excl" ${S.settings.vatMode==='excl'?'selected':''}>VAT added on top of fee</option></select></div></div>
