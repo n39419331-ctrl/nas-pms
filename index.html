@@ -3911,6 +3911,20 @@ const MX146=[];
  MX146.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no){const x=ex.find(e=>String(e.mrNo||'')===no||e.invNo==='Receipt '+no);if(x){x.xlDesc=desc;x.xlNotes=notes;x.mrNo=no;m++;return}}
   S.expenses.push({id:uid(),propId:'P-146',date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl146'});n++});
  S.settings.mx146done=1;save();setTimeout(()=>toast('146 maintenance Excel loaded: '+n+' entries'+(m?' ('+m+' matched receipts already in the app)':'')),1500)})();
+const PL146={"U":[],"C":[]};
+(function load146All(){S.settings=S.settings||{};if(S.settings.pl146done||!PL146.U.length)return;const pid='P-146';if(!S.properties.some(p=>p.id===pid))return;{const pp=S.properties.find(p=>p.id===pid);if(!+pp.resUnits)pp.resUnits=104;if(!+pp.comUnits)pp.comUnits=9}
+ const ren={P1:'1PH',P2:'2PH'},rn=u=>{u=String(u==null?'':u).trim();const U2=u.toUpperCase();if(ren[U2])return ren[U2];const m=U2.match(/^(OF|SH)(\d+)$/);return m?m[2]+m[1]:u};
+ (S.units[pid]||[]).forEach(u=>u.unit=rn(u.unit));['tenants','cheques','receipts','mrcpts'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.propId===pid){if(x.unit!=null)x.unit=rn(x.unit);if(x.flat!=null)x.flat=rn(x.flat)}}));
+ const U=S.units[pid]=S.units[pid]||[],K=['unit','type','sqm','lease','tenant','start','end','tawthiq','actual','nextRent','aver','note','phone','deposit','status'];
+ PL146.U.forEach(a=>{const o={};K.forEach((k,i)=>o[k]=a[i]);const ex=U.find(x=>String(x.unit)===o.unit);if(ex)Object.assign(ex,o);else U.push(o)});
+ const ord=new Map(PL146.U.map((a,i)=>[a[0],i]));U.sort((a,b)=>(ord.has(String(a.unit))?ord.get(String(a.unit)):9999)-(ord.has(String(b.unit))?ord.get(String(b.unit)):9999));
+ const k=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();let nt=0;S.tenants=S.tenants||[];
+ U.forEach(u=>{if(!u.tenant)return;let t=S.tenants.find(x=>x.propId===pid&&String(x.unit)===String(u.unit)&&k(x.name)===k(u.tenant));
+  if(!t){t={id:uid(),propId:pid,unit:String(u.unit),name:u.tenant,eid:'',nationality:'',dob:'',gender:'',eidExpiry:'',mobile:'',email:'',passport:'',notes:'',files:[],docs:[]};S.tenants.push(t);nt++}
+  if(!t.mobile&&u.phone)t.mobile=waNum(String(u.phone).split('/')[0])});
+ let nc=0;S.cheques=S.cheques||[];PL146.C.forEach(([unit,no,amt,date,bank,st,ten,cs,ce,camt,bounce,bpaid,notice])=>{if(S.cheques.some(c=>c.propId===pid&&String(c.unit)===unit&&String(c.chqNo)===String(no)))return;
+  const u=U.find(x=>String(x.unit)===unit)||{};S.cheques.push({id:uid(),propId:pid,chqNo:no,bank,payer:ten||u.tenant||'',unit,amount:amt,chqDate:date,receivedDate:'',receiptNo:'',status:st,depositDate:'',clearedDate:'',note:notice||'',files:[],...(cs?{cStart:cs,cEnd:ce,cAmt:camt}:{}),...(bounce?{bounced:bounce,bouncePaid:bpaid}:{}),src:'pcd146'});nc++});
+ S.settings.pl146done=1;save();setTimeout(()=>toast('146 loaded: '+U.length+' units, '+nc+' cheques, '+nt+' new tenant records'),2500)})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
