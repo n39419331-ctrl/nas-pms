@@ -3716,6 +3716,18 @@ function chqRcSync(){const E=S.stmt&&S.stmt.entries;if(!E)return;(S.cheques||[])
  const n0=S.stmt.entries.length;postRent({propId:c.propId,desc:isDep?desc.replace(/\s*\(?\s*refundable[^)]*\)?/i,'').trim():desc,date:dt,tenant:c.payer,unit:c.unit,method:'Cheque',chq:c.chqNo,amount:c.amount,receiptNo:c.receiptNo,...(isDep?{fee:false}:{})});
  S.stmt.entries.slice(n0).forEach(e=>e.chqId=c.id);c.rcPosted=1})}
 (function chqRcHook(){const o=save;save=function(){try{chqRcSync()}catch(e){console.error(e)}return o.apply(this,arguments)}})();
+(function addBuilding5257(){if(S.settings&&S.settings.b5257done)return;S.settings=S.settings||{};
+ let p=S.properties.find(x=>String(x.short||'').trim()==='5257'||x.id==='P-5257');
+ if(!p){p={id:'P-5257',no:'P-5257',short:'5257',landlord:'Heirs of fadel saeed alhameli',resUnits:0,comUnits:1,location:'',plot:'78, E 16',nextReceipt:10000053,image:''};S.properties.push(p)}
+ else{if(!p.landlord)p.landlord='Heirs of fadel saeed alhameli';if(!p.plot)p.plot='78, E 16';p.nextReceipt=Math.max(+p.nextReceipt||0,10000053)}
+ S.units=S.units||{};const U=S.units[p.id]=S.units[p.id]||[],payer='THE BODY CARE REFINING MEN PERSONAL CARE SOLE PROPRIETORSHIP';
+ if(!U.some(u=>String(u.unit).toUpperCase()==='OFFICE 2'))U.push({unit:'OFFICE 2',type:'',sqm:'',lease:'',tenant:payer,start:'',end:'',tawthiq:'',actual:'',nextRent:'',aver:'',note:'',phone:'',deposit:'',status:'Occupied'});
+ const no='5257-10000052';S.receipts=S.receipts||[];S.cheques=S.cheques||[];
+ if(!S.receipts.some(r=>r.propId===p.id&&r.no===no)){
+  const L=[{desc:'Rent from Commercial unit',mode:'Cheque',chq:'000056',bank:'',pdate:'2026-11-22',amount:35000,rcLater:1},{desc:'Rent from Commercial unit',mode:'Cheque',chq:'000057',bank:'',pdate:'',amount:35000,rcLater:1},{desc:'Renewal Fee',mode:'Cheque',chq:'000055',bank:'',pdate:'2026-11-22',amount:4410,rcLater:1}];
+  S.receipts.push({id:uid(),cStart:'',cEnd:'',cAmt:'',chqFiles:[],stamp:false,details:'',note:'',invId:'',invItems:[],no,propId:p.id,date:'2026-11-21',payer,unit:'OFFICE 2',unitType:'3BHK / 2BHK',lines:L,void:false,created:Date.now()});
+  L.forEach(l=>{if(!S.cheques.some(c=>c.propId===p.id&&c.chqNo===l.chq&&c.receiptNo===no))S.cheques.push({rcLater:1,rcPosted:0,id:uid(),propId:p.id,chqNo:l.chq,bank:'',payer,unit:'OFFICE 2',amount:l.amount,chqDate:l.pdate,receivedDate:'2026-11-21',receiptNo:no,status:'Received',depositDate:'',clearedDate:'',note:l.desc,files:[]})})}
+ S.settings.b5257done=1;save()})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
