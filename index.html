@@ -1478,14 +1478,16 @@ function rNew(){
     if(S.receipts.some(x=>x.propId===p.id&&x.no===p.short+'-'+(+serial)&&x.id!==d.editId)){toast('Receipt '+p.short+'-'+(+serial)+' already exists — choose another number');return null}
     const old=d.editId&&S.receipts.find(x=>x.id===d.editId);
     const r={id:old?old.id:uid(),cStart:d.cStart||'',cEnd:d.cEnd||'',cAmt:d.cAmt||'',chqFiles:d.chqFiles||[],stamp:d.stamp!==false,details:d.details,note:d.note,invId:d.invId||'',invItems:d.invItems||[],no:p.short+'-'+(+serial),propId:p.id,date:d.date,payer:d.payer.trim(),unit:d.unit.trim(),unitType:d.unitType.trim(),lines:d.lines.map(l=>({...l,amount:+l.amount,chq:l.mode==='Cheque'?(l.chq.trim()||'-'):'-'})),void:false,created:old?old.created:Date.now()};
-    let oc=[];if(old){oc=S.cheques.filter(c=>c.receiptNo===old.no&&c.propId===p.id);dropReceiptEntries(old);S.cheques=S.cheques.filter(c=>!(c.receiptNo===old.no&&c.propId===p.id));S.receipts=S.receipts.map(x=>x.id===old.id?r:x)}else S.receipts.push(r);
+    const ocNo=old?old.no:r.no;let oc=S.cheques.filter(c=>c.receiptNo===ocNo&&c.propId===p.id);S.cheques=S.cheques.filter(c=>!(c.receiptNo===ocNo&&c.propId===p.id));if(old){dropReceiptEntries(old);S.receipts=S.receipts.map(x=>x.id===old.id?r:x)}else S.receipts.push(r);
+    const ocUsed=new Set();r.lines.forEach(l=>{if(l.mode!=='Cheque'){delete l.rcLater;return}const m=oc.find(c=>!ocUsed.has(c)&&c.chqNo===l.chq&&+c.amount===+l.amount);if(m)ocUsed.add(m);if(m&&!m.rcLater)delete l.rcLater;else l.rcLater=1});ocUsed.clear();
     p.nextReceipt=Math.max(p.nextReceipt,+serial+1);
     const isOwner=/^owner$/i.test(String(r.unit).trim()); // owner receipt: saved and printed only
     if(!isOwner)recalcDeposit(p.id,r.unit,r.payer);if(old&&(String(old.unit)!==String(r.unit)||norm(old.payer)!==norm(r.payer)))recalcDeposit(p.id,old.unit,old.payer);
-    if(!isOwner)r.lines.filter(l=>/^rent(al)?\b|parking/i.test(l.desc)).forEach(l=>postRent({propId:p.id,desc:l.desc,date:l.pdate,tenant:r.payer,unit:r.unit,method:l.mode,chq:l.chq,amount:l.amount,receiptNo:r.no}));
-    if(!isOwner)r.lines.filter(l=>/security deposit/i.test(l.desc)&&+l.amount>0).forEach(l=>postRent({propId:p.id,desc:String(l.desc).replace(/\s*\(?\s*refundable[^)]*\)?/i,'').trim(),date:l.pdate,tenant:r.payer,unit:r.unit,method:l.mode,chq:l.chq,amount:l.amount,receiptNo:r.no,fee:false})); // security deposit: no 2% fee
+    if(!isOwner)r.lines.filter(l=>!l.rcLater&&/^rent(al)?\b|parking/i.test(l.desc)).forEach(l=>postRent({propId:p.id,desc:l.desc,date:l.pdate,tenant:r.payer,unit:r.unit,method:l.mode,chq:l.chq,amount:l.amount,receiptNo:r.no}));
+    if(!isOwner)r.lines.filter(l=>!l.rcLater&&/security deposit/i.test(l.desc)&&+l.amount>0).forEach(l=>postRent({propId:p.id,desc:String(l.desc).replace(/\s*\(?\s*refundable[^)]*\)?/i,'').trim(),date:l.pdate,tenant:r.payer,unit:r.unit,method:l.mode,chq:l.chq,amount:l.amount,receiptNo:r.no,fee:false})); // security deposit: no 2% fee
     /* parking contracts are no longer made automatically */
-    if(!isOwner)r.lines.filter(l=>l.mode==='Cheque').forEach(l=>{const m=oc.find(c=>c.chqNo===l.chq&&+c.amount===+l.amount);S.cheques.push({id:m?m.id:uid(),propId:p.id,chqNo:l.chq,bank:l.bank||(m&&m.bank)||'',payer:r.payer,unit:r.unit,amount:l.amount,chqDate:l.pdate,receivedDate:r.date,receiptNo:r.no,status:m?m.status:'Received',depositDate:m?m.depositDate:'',clearedDate:m?m.clearedDate:'',...(m&&m.depFiles?{depFiles:m.depFiles}:{}),note:l.desc})});
+    if(!isOwner)r.lines.filter(l=>l.mode==='Cheque').forEach(l=>{const m=oc.find(c=>!ocUsed.has(c)&&c.chqNo===l.chq&&+c.amount===+l.amount);if(m)ocUsed.add(m);S.cheques.push({...(l.rcLater?{rcLater:1,rcPosted:0}:{}),id:m?m.id:uid(),propId:p.id,chqNo:l.chq,bank:l.bank||(m&&m.bank)||'',payer:r.payer,unit:r.unit,amount:l.amount,chqDate:l.pdate,receivedDate:r.date,receiptNo:r.no,status:m?m.status:'Received',depositDate:m?m.depositDate:'',clearedDate:m?m.clearedDate:'',...(m&&m.depFiles?{depFiles:m.depFiles}:{}),note:l.desc})});
+    oc.filter(c=>!ocUsed.has(c)).forEach(c=>S.cheques.push(c)); // cheques removed from the receipt stay in the Cheques section
     (d._newFiles||[]).filter(f=>r.chqFiles.some(x=>x.id===f.id)).forEach(f=>IDB.put(f).catch(()=>toast('Could not store the cheque copy in this browser')));
     S.cheques.filter(c=>c.receiptNo===r.no&&c.propId===p.id).forEach(c=>{c.files=r.chqFiles.map(f=>f.id);if(d.cStart){c.cStart=d.cStart;c.cEnd=d.cEnd||'';c.cAmt=d.cAmt||''}});
     if(old)rview='reg';save();draft=null;return r};
@@ -1532,8 +1534,8 @@ function rReg(){
         const no=p.short+'-'+(+v);if(no!==r.no&&noUsed(p,+v)){toast(no+' already exists');return false}
         S.cheques.forEach(c=>{if(c.receiptNo===r.no&&c.propId===r.propId)c.receiptNo=no});S.stmt.entries.forEach(e=>{if(e.receiptNo===r.no&&e.propId===r.propId)e.receiptNo=no});r.no=no;p.nextReceipt=Math.max(p.nextReceipt,+v+1);save();render();toast('Receipt number changed to '+no)});return}
     if(b.dataset.del){const r=S.receipts.find(x=>x.id===b.dataset.del),p=prop(r.propId);
-      if(confirm('Delete receipt '+r.no+' completely? Its cheques will also be removed from the Cheques register.')){
-        dropReceiptEntries(r);S.receipts=S.receipts.filter(x=>x.id!==r.id);S.cheques=S.cheques.filter(c=>!(c.receiptNo===r.no&&c.propId===r.propId));
+      if(confirm('Delete receipt '+r.no+' completely? Its cheques stay in the Cheques section.')){
+        dropReceiptEntries(r);S.receipts=S.receipts.filter(x=>x.id!==r.id);
         recalcDeposit(r.propId,r.unit,r.payer);
         const s=+String(r.no).split('-').pop();p.freed=p.freed||[];if(!isNaN(s))p.freed.push(s);
         while(p.freed.includes(p.nextReceipt-1)){p.freed=p.freed.filter(x=>x!==p.nextReceipt-1);p.nextReceipt--}
@@ -3589,7 +3591,7 @@ load();render();backfillPhotos();aiInit();
 (function patchChqBanks(){const B={'500033':'Abu Dhabi Islamic Bank (ADIB)','500034':'Abu Dhabi Islamic Bank (ADIB)','500035':'Abu Dhabi Islamic Bank (ADIB)','664321':'First Abu Dhabi Bank (FAB)','664322':'First Abu Dhabi Bank (FAB)','664323':'First Abu Dhabi Bank (FAB)','000089':'Emirates NBD'};let ch=0;
  (S.cheques||[]).forEach(c=>{if(c.propId==='P-891'&&B[c.chqNo]&&!c.bank){c.bank=B[c.chqNo];ch=1}});if(ch)save();})();
 /* receipts saved before parking was posted to Rent Collection: add the missing parking entries (same as saving the receipt now) */
-(function backfillParkingStmt(){let n=0;(S.receipts||[]).forEach(r=>{if(r.void||!r.lines||/^owner$/i.test(String(r.unit).trim()))return;r.lines.filter(l=>/parking/i.test(l.desc)).forEach(l=>{
+(function backfillParkingStmt(){let n=0;(S.receipts||[]).forEach(r=>{if(r.void||!r.lines||/^owner$/i.test(String(r.unit).trim()))return;r.lines.filter(l=>!l.rcLater&&/parking/i.test(l.desc)).forEach(l=>{
   const has=S.stmt.entries.some(e=>e.propId===r.propId&&e.receiptNo===r.no&&e.kind==='rent'&&e.desc===l.desc&&+e.credit===+l.amount);
   if(!has){postRent({propId:r.propId,desc:l.desc,date:l.pdate||r.date,tenant:r.payer,unit:r.unit,method:l.mode,chq:l.chq,amount:l.amount,receiptNo:r.no});n++}})});if(n)save()})();
 (function repairLeaseHistory(){let ch=0;(S.tenants||[]).forEach(t=>{if(!tenantCurrent(t)||!(t.leases||[]).length)return;const u=units(t.propId).find(x=>String(x.unit)===String(t.unit));if(!u||!u.start)return;
@@ -3605,7 +3607,7 @@ const b=S.stmt.entries.length;S.stmt.entries=S.stmt.entries.filter(e=>!(e.kind==
  const del=new Set();Object.values(G).forEach(L=>{if(L.length<2)return;const keep=L.find(e=>/^cash$/i.test(String(e.method||'').trim()))||L.find(e=>!/bank\s*transfer/i.test(e.method||''))||L[0];
   L.forEach(e=>{if(e!==keep&&/bank\s*transfer/i.test(e.method||''))del.add(e.id)})});
  if(del.size){S.stmt.entries=E.filter(e=>!del.has(e.id));save()}})();
-(function backfillDepositStmt(){let n=0;(S.receipts||[]).forEach(r=>{if(r.void||!r.lines||/^owner$/i.test(String(r.unit).trim()))return;r.lines.filter(l=>/security deposit/i.test(l.desc)&&+l.amount>0).forEach(l=>{
+(function backfillDepositStmt(){let n=0;(S.receipts||[]).forEach(r=>{if(r.void||!r.lines||/^owner$/i.test(String(r.unit).trim()))return;r.lines.filter(l=>!l.rcLater&&/security deposit/i.test(l.desc)&&+l.amount>0).forEach(l=>{
   if(l.stDone)return; // posted once; never re-add (even if the entry was edited or deleted)
   const has=S.stmt.entries.some(e=>e.propId===r.propId&&String(e.unit)===String(r.unit)&&e.kind==='rent'&&/security deposit/i.test(e.desc||'')&&+e.credit===+l.amount);
   l.stDone=1;n++;
@@ -3680,6 +3682,16 @@ const TH146={"units":[],"tenants":[]};
  if(S.settings.mrNext&&S.settings.mrNext<1000000)S.settings.mrNext+=1000000;S.settings._mr1000=1;save()})();
 (function migrateOwnerDocs(){try{let ch=0;(S.docsLib||[]).forEach(d=>{if(d.area==='legal'){d.area='owner';d.sub=ownerFolder(d.kind);ch=1}});if(ch)save()}catch(_){}})();
 (function spAutoOn1911(){S.settings=S.settings||{};if(S.settings._spauto)return;const st=S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}};st.auto=true;S.settings._spauto=1;save()})();
+/* Rent Collection: cheques received from 21 Nov 2026 are posted only when Applied (Deposited/Cleared), dated on the cleared date */
+function chqRcSync(){const E=S.stmt&&S.stmt.entries;if(!E)return;(S.cheques||[]).forEach(c=>{if(!c.rcLater)return;
+ const desc=String(c.note||''),isDep=/security deposit/i.test(desc),isRent=/^rent(al)?\b|parking/i.test(desc);if(!isDep&&!isRent)return;
+ const ap=/Deposited|Cleared/.test(c.status||''),dt=c.clearedDate||c.depositDate||'',mine=E.filter(e=>e.chqId===c.id);
+ if(!ap||!dt){if(mine.length){S.stmt.entries=S.stmt.entries.filter(e=>e.chqId!==c.id)}c.rcPosted=0;return}
+ if(mine.length){mine.forEach(e=>{if(e.date!==dt)e.date=dt});return}
+ if(c.rcPosted)return; // posted once and then deleted by hand: not re-added
+ const n0=S.stmt.entries.length;postRent({propId:c.propId,desc:isDep?desc.replace(/\s*\(?\s*refundable[^)]*\)?/i,'').trim():desc,date:dt,tenant:c.payer,unit:c.unit,method:'Cheque',chq:c.chqNo,amount:c.amount,receiptNo:c.receiptNo,...(isDep?{fee:false}:{})});
+ S.stmt.entries.slice(n0).forEach(e=>e.chqId=c.id);c.rcPosted=1})}
+(function chqRcHook(){const o=save;save=function(){try{chqRcSync()}catch(e){console.error(e)}return o.apply(this,arguments)}})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
