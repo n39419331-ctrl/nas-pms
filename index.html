@@ -3164,7 +3164,7 @@ const clLS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);if(v===nu
 const clOnLocal=()=>clLS('nas_cloud_on')==='1';
 const clMe=()=>((typeof SPX!=='undefined'&&SPX.acct&&SPX.acct.username)||'').toLowerCase();
 const clOwners=()=>((S.settings&&S.settings.owners)||[]).map(x=>String(x).toLowerCase().trim()).filter(Boolean);
-const clIsOwner=()=>{const o=clOwners();return !clOnLocal()||!o.length||o.includes(clMe())};
+const clIsOwner=()=>{const o=clOwners();return !clOnLocal()||!o.length||o.includes('*')||o.includes(clMe())};
 const clJ=v=>v===undefined?'\u0000':JSON.stringify(v);
 const clIsObj=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const clKey=o=>clIsObj(o)&&o.id!=null?'i:'+o.id:clIsObj(o)&&o.unit!=null?'u:'+o.unit:'j:'+JSON.stringify(o);
@@ -3221,7 +3221,7 @@ function clRender(){const ae=document.activeElement,busy=document.querySelector(
  if(busy||form){CL.pendingRender=true;return}CL.pendingRender=false;render()}
 function clBadge(){const e=document.getElementById('clBadge');if(e)e.innerHTML=clBadgeHtml()}
 function clBadgeHtml(){if(!clOnLocal())return 'Off — the data is only in this browser.';
- return `On · you are <b>${clIsOwner()?'Owner':'Staff'}</b> (${esc(clMe()||'not signed in')})${CL.lastSync?' · last sync '+CL.lastSync.toLocaleTimeString():''}${CL.err?' · <span style="color:var(--red)">'+esc(CL.err)+'</span>':''}${!spOn()?' · <span style="color:var(--red)">sign in to SharePoint to sync</span>':''}`}
+ return `On · you are <b>${clIsOwner()?'Owner':'Staff'}</b>${clOwners().includes('*')?' (everyone has full access)':''} (${esc(clMe()||'not signed in')})${CL.lastSync?' · last sync '+CL.lastSync.toLocaleTimeString():''}${CL.err?' · <span style="color:var(--red)">'+esc(CL.err)+'</span>':''}${!spOn()?' · <span style="color:var(--red)">sign in to SharePoint to sync</span>':''}`}
 function clCard(){const on=clOnLocal();return `<div class="card"><b>Shared data (all users)</b><p class="hint" style="margin:6px 0">Everyone signs in with their Microsoft 365 account and works on the same data, kept in SharePoint › App Data. Staff cannot delete anything — only owners can. A copy is saved in App Data › Backups every day.</p><div id="clBadge" class="hint">${clBadgeHtml()}</div>
  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${!on?(spOn()?'<button class="btn pri" onclick="clEnable()">Start / join shared data</button>':'<span class="hint">Connect to SharePoint first (above).</span>'):`<button class="btn" onclick="clSync()">Sync now</button>${clIsOwner()?'<button class="btn" onclick="clOwnersForm()">Owners</button>':''}<button class="btn" onclick="clDisable()">Stop on this computer</button>`}</div></div>`}
 async function clEnable(){if(!spOn()){toast('Connect to SharePoint first');return}
@@ -3234,8 +3234,8 @@ async function clEnable(){if(!spOn()){toast('Connect to SharePoint first');retur
    const remote=await clDownload(meta);clApply(JSON.parse(JSON.stringify(remote)));await clSetBase(JSON.stringify(remote),meta.eTag);clLS('nas_cloud_on','1');toast('Shared data is on')}
   clStart();render()}catch(e){console.error(e);toast(e.message||'Could not start shared data')}}
 function clDisable(){if(!confirm('Stop shared data on this computer? The data stays in this browser but no longer syncs.'))return;clLS('nas_cloud_on',null);render();toast('Shared data stopped on this computer')}
-function clOwnersForm(){if(!clIsOwner())return;const o=modal(`<h3>Owners</h3><p class="hint">Owners can delete. Everyone else is staff. One Microsoft 365 email per line.</p><textarea id="clOw" rows="5" style="width:100%">${esc(clOwners().join('\n'))}</textarea><div style="margin-top:10px"><button class="btn pri" id="clOk">Save</button></div>`,null);
- $('#clOk',o).onclick=()=>{const L=$('#clOw',o).value.split(/[\n,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);if(!L.includes(clMe())&&!confirm('You are not in the list — you will become staff. Continue?'))return;S.settings.owners=L;actLog('Owners changed: '+L.join(', '));save();o.remove();render()}}
+function clOwnersForm(){if(!clIsOwner())return;const o=modal(`<h3>Owners</h3><p class="hint">Owners can delete. Everyone else is staff. One Microsoft 365 email per line.</p><label style="display:flex;gap:6px;align-items:center;margin:8px 0"><input type="checkbox" id="clAll" style="width:auto" ${clOwners().includes('*')?'checked':''}> Everyone has full access (all users can delete)</label><textarea id="clOw" rows="5" style="width:100%">${esc(clOwners().filter(x=>x!=='*').join('\n'))}</textarea><div style="margin-top:10px"><button class="btn pri" id="clOk">Save</button></div>`,null);
+ $('#clOk',o).onclick=()=>{const L=$('#clOw',o).value.split(/[\n,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);if($('#clAll',o).checked&&!L.includes('*'))L.push('*');if(!L.includes(clMe())&&!L.includes('*')&&!confirm('You are not in the list — you will become staff. Continue?'))return;S.settings.owners=L;actLog('Owners changed: '+L.join(', '));save();o.remove();render()}}
 /* attachments: uploaded once to App Data › Files, fetched by the other users when they open them */
 const clFilePath=id=>CL.dir()+'/Files/'+spClean(id)+'.json';
 const IDB_get0=IDB.get.bind(IDB),IDB_put0=IDB.put.bind(IDB);
