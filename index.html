@@ -3183,7 +3183,7 @@ function clApply(data){const s0=S.settings||{},sp0=s0.sp||{},cur=S.cur;S=data;S.
  S.cur=cur&&(S.properties||[]).some(p=>p.id===cur)?cur:((S.properties||[])[0]||{}).id;
  if(s0.dark!==undefined)S.settings.dark=s0.dark;if(s0.theme!==undefined)S.settings.theme=s0.theme;
  S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}};['pending','last','lastChunk'].forEach(k=>{if(sp0[k]!==undefined)S.settings.sp[k]=sp0[k]});
- try{localStorage.setItem(KEY,JSON.stringify(S))}catch(_){}try{ACT_SNAP=actKeyed()}catch(_){}}
+ try{localStorage.setItem(KEY,JSON.stringify(S))}catch(_){}try{ACT_SNAP=actKeyed()}catch(_){}try{setTimeout(xlCheck,500)}catch(_){}}
 /* three-way merge: base = last shared copy this computer saw, l = this computer, r = SharePoint now */
 function clMerge(b,l,r,path){const jb=clJ(b),jl=clJ(l),jr=clJ(r);
  if(jl===jb)return r;if(jr===jb||jl===jr)return l;
