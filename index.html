@@ -1251,12 +1251,12 @@ function propForm(p){
   const f=(k,l,t='text')=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(n[k])}"></div>`;
   const o=modal(`<h3>${p?'Edit property':'New property'}</h3><div class="grid g2">${f('no','Property #')}${f('plot','Plot & sector (shown on receipt)')}
    <div style="grid-column:span 2">${f('landlord','Landlord Name')}</div>${f('resUnits','Residential Units','number')}${f('comUnits','Commercial Units','number')}
-   <div style="grid-column:span 2">${f('location','Location')}</div>${f('nextReceipt','Next receipt serial','number')}<div style="align-self:end"><label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="pinv" ${n.invoices?'checked':''} style="width:auto;margin-right:6px">Enable invoices for this property</label></div>
+   <div style="grid-column:span 2">${f('location','Location')}</div>${f('nextReceipt','Next receipt serial','number')}${f('feePct','Management fee % (empty = same as Settings)')}<div style="align-self:end"><label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)"><input type="checkbox" id="pinv" ${n.invoices?'checked':''} style="width:auto;margin-right:6px">Enable invoices for this property</label></div>
    <div style="grid-column:span 2"><label>Property photo</label><input type="file" id="pimg" accept="image/*"><div id="pprev" style="margin-top:8px"></div></div></div>
    <p class="hint">Receipt numbers look like <b>${esc(shortOf(n.no))||'891'}-${n.nextReceipt}</b>.</p>`,ov=>{
     ov.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;n[k]=el.type==='number'?+el.value:el.value.trim()});
     if(!n.no||n.no==='P-'){toast('Property # is required');return false}
-    n.short=shortOf(n.no);n.invoices=$('#pinv',ov).checked;if(!n.nextInvoice)n.nextInvoice=100001;
+    n.short=shortOf(n.no);n.invoices=$('#pinv',ov).checked;if(String(n.feePct??'').trim()==='')delete n.feePct;else n.feePct=+String(n.feePct).replace('%','');if(!n.nextInvoice)n.nextInvoice=100001;
     if(p){Object.assign(p,n)}else{n.id=n.no;if(S.properties.some(x=>x.id===n.id)){toast('That property already exists');return false}S.properties.push(n);S.units[n.id]=[];S.cur=n.id}
     save();render()});
   const pv=()=>{$('#pprev',o).innerHTML=n.image?`<img class="pimg" src="${n.image}" alt=""> <button class="btn sm danger" id="pimgx" type="button">Remove photo</button>`:'<span class="hint">No photo yet — JPG or PNG of the building.</span>';const x=$('#pimgx',o);if(x)x.onclick=()=>{n.image='';pv()}};pv();
@@ -2566,11 +2566,12 @@ const stmtOpen=pid=>+((S.stmt.open||{})[pid])||0;
 /* a cheque payment (and its fee) counts in Rent Collection only once that cheque is Deposited or Cleared */
 const stmtChqOk=e=>{if(e.method!=='Cheque'||!e.chq||e.chq==='-')return true;const c=S.cheques.find(x=>x.propId===e.propId&&String(x.chqNo)===String(e.chq)&&(!e.receiptNo||!x.receiptNo||x.receiptNo===e.receiptNo));return !c||c.status==='Deposited'||c.status==='Cleared'};
 const stmtSorted=pid=>S.stmt.entries.map((e,i)=>[e,i]).filter(([e])=>e.propId===pid&&stmtChqOk(e)).sort((a,b)=>String(a[0].date).localeCompare(String(b[0].date))||a[1]-b[1]).map(x=>x[0].kind==='rent'&&/parking/i.test(x[0].desc||'')?{...x[0],desc:'Parking'}:x[0]); // parking shows as just "Parking"
-function feeAmount(rent){const s=S.settings,base=rent*(+s.feePct||0)/100;if(s.vatMode==='none')return Math.round(base*100)/100;return Math.round((s.vatMode==='excl'?base*(1+(+s.vatPct||0)/100):base)*100)/100}
-function feeDesc(){const s=S.settings;if(s.vatMode==='none')return 'Management fee '+(+s.feePct)+'%';return 'Management fee '+(+s.feePct)+'%'+(s.vatMode==='excl'?' + VAT '+(+s.vatPct)+'%':' (incl. VAT '+(+s.vatPct)+'%)')}
+const feePctOf=pid=>{const p=(S.properties||[]).find(x=>x.id===pid);return p&&p.feePct!==undefined&&p.feePct!==''&&p.feePct!==null?+p.feePct:+S.settings.feePct||0};
+function feeAmount(rent,pid){const s=S.settings,base=rent*feePctOf(pid||S.cur)/100;if(s.vatMode==='none')return Math.round(base*100)/100;return Math.round((s.vatMode==='excl'?base*(1+(+s.vatPct||0)/100):base)*100)/100}
+function feeDesc(pid){const s=S.settings,fp=feePctOf(pid||S.cur);if(s.vatMode==='none')return 'Management fee '+fp+'%';return 'Management fee '+fp+'%'+(s.vatMode==='excl'?' + VAT '+(+s.vatPct)+'%':' (incl. VAT '+(+s.vatPct)+'%)')}
 function postRent(o){const g=uid(),base={propId:o.propId,grp:g,date:o.date,tenant:o.tenant,unit:String(o.unit),method:o.method,chq:o.chq&&o.chq!=='-'?o.chq:'',receiptNo:o.receiptNo||''};
  S.stmt.entries.push({...base,id:uid(),kind:'rent',desc:o.desc||'Rent',debit:0,credit:+o.amount});
- if(o.fee!==false&&feeAmount(+o.amount)>0)S.stmt.entries.push({...base,id:uid(),kind:'fee',desc:feeDesc(),debit:feeAmount(+o.amount),credit:0})}
+ if(o.fee!==false&&feeAmount(+o.amount,o.propId)>0)S.stmt.entries.push({...base,id:uid(),kind:'fee',desc:feeDesc(o.propId),debit:feeAmount(+o.amount,o.propId),credit:0})}
 function dropReceiptEntries(r){S.stmt.entries=S.stmt.entries.filter(e=>!(e.receiptNo===r.no&&e.propId===r.propId))}
 const STARS='*********';
 // Balance runs only on our charges (debits); rent received shows stars and is never totalled
@@ -2620,7 +2621,7 @@ function stmtForm(en){
   ov.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;n[k]=el.type==='number'?(el.value===''?'':+el.value):el.value.trim()});
   if(!n.date){toast('Date is required');return false}
   if(!(+n.credit>0)&&!(+n.debit>0)){toast('Enter an amount');return false}
-  if(en){const old={credit:en.credit,method:en.method,chq:en.chq,desc:en.desc,date:en.date};Object.assign(en,n);if(en.kind==='rent'&&+n.credit!==+old.credit){const sib=S.stmt.entries.find(x=>x.grp===en.grp&&x.kind==='fee');if(sib){sib.debit=feeAmount(+n.credit);sib.date=en.date}}
+  if(en){const old={credit:en.credit,method:en.method,chq:en.chq,desc:en.desc,date:en.date};Object.assign(en,n);if(en.kind==='rent'&&+n.credit!==+old.credit){const sib=S.stmt.entries.find(x=>x.grp===en.grp&&x.kind==='fee');if(sib){sib.debit=feeAmount(+n.credit,en.propId);sib.date=en.date}}
    /* keep the receipt in step, so re-saving the receipt doesn't undo this change */
    if(en.kind==='rent'){S.stmt.entries.filter(x=>x.grp===en.grp&&x.kind==='fee').forEach(x=>{x.method=en.method;x.chq=en.chq});
     const r=en.receiptNo&&S.receipts.find(x=>x.no===en.receiptNo&&x.propId===en.propId);
@@ -4012,6 +4013,7 @@ const R5257OLD=[];
  R5257OLD.forEach(([no,date,payer,unit,ut,L,note])=>{const num=no||('5257-OLD-'+unit+'-'+date.slice(5).replace('-',''));if(S.receipts.some(r=>r.propId===pid&&r.no===num))return;
   S.receipts.push({id:uid(),cStart:'',cEnd:'',cAmt:'',chqFiles:[],stamp:false,details:'',note,invId:'',invItems:[],no:num,propId:pid,date,payer,unit,unitType:ut,lines:L.map(([desc,mode,chq,pdate,amount])=>({desc,mode,chq,bank:'',pdate,amount})),void:false,created:Date.now(),files:[],oldImport:1});n++});
  S.settings.r5257old=1;save();setTimeout(()=>toast(n+' old 5257 receipts added to the Receipts register'),3500)})();
+(function fee5257(){S.settings=S.settings||{};if(S.settings._fee5257)return;const id=bldId('5257');if(!id)return;const p=S.properties.find(x=>x.id===id);p.feePct=2.5;S.settings._fee5257=1;save()})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
