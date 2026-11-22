@@ -3981,6 +3981,11 @@ const D5257={"U":[],"C":[],"RC":[],"MT":[]};
  D5257.MT.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no){const x=ex.find(e=>String(e.mrNo||'')===no||e.invNo==='Receipt '+no);if(x){x.xlDesc=desc;x.xlNotes=notes;x.mrNo=no;return}}
   S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl5257'})});
  S.settings.d5257done=1;save();setTimeout(()=>toast('5257 loaded: '+U.length+' units, '+D5257.C.length+' cheques, '+D5257.RC.length+' rent collection lines, '+D5257.MT.length+' maintenance entries'),3000)})();
+const R5257OLD=[];
+(function oldReceipts5257(){S.settings=S.settings||{};if(S.settings.r5257old||!R5257OLD.length)return;const pid='P-5257';if(!S.properties.some(p=>p.id===pid))return;S.receipts=S.receipts||[];let n=0;
+ R5257OLD.forEach(([no,date,payer,unit,ut,L,note])=>{const num=no||('5257-OLD-'+unit+'-'+date.slice(5).replace('-',''));if(S.receipts.some(r=>r.propId===pid&&r.no===num))return;
+  S.receipts.push({id:uid(),cStart:'',cEnd:'',cAmt:'',chqFiles:[],stamp:false,details:'',note,invId:'',invItems:[],no:num,propId:pid,date,payer,unit,unitType:ut,lines:L.map(([desc,mode,chq,pdate,amount])=>({desc,mode,chq,bank:'',pdate,amount})),void:false,created:Date.now(),files:[],oldImport:1});n++});
+ S.settings.r5257old=1;save();setTimeout(()=>toast(n+' old 5257 receipts added to the Receipts register'),3500)})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
