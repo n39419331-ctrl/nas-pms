@@ -3947,6 +3947,10 @@ const PL891N=[];
 (function load891Parking(){S.settings=S.settings||{};if(S.settings.pl891p||!PL891N.length)return;const pid='P-891';if(!S.units[pid])return;
  const U=S.units[pid];PL891N.forEach(o=>{const ex=U.find(x=>String(x.unit)===o.unit);if(ex)Object.assign(ex,o);else U.push({...o})});
  S.settings.pl891p=1;save();setTimeout(()=>toast('891 property list updated with parking numbers'),2000)})();
+(function fixParkingShift(){try{let n=0;const ph=v=>/^\+?\d[\d\s-]{6,}$/.test(String(v==null?'':v).trim());
+ Object.keys(S.units||{}).forEach(pid=>(S.units[pid]||[]).forEach(u=>{if(!ph(u.status))return; // a property list imported with the old column order: Parking No went into Phone, Phone into Status
+  if(!u.parking)u.parking=String(u.phone==null?'':u.phone).trim();u.phone=String(u.status).trim();u.status=u.tenant?'Occupied':'Vacant';n++}));
+ if(n){save();setTimeout(()=>toast(n+' units fixed: parking numbers moved out of Phone — re-import the property list to bring back Notes and S. deposit'),2500)}}catch(e){console.error(e)}})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
