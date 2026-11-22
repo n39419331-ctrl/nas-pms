@@ -3038,8 +3038,11 @@ async function spKids(path){if(SPX.kids[path])return SPX.kids[path];const L=[];l
 function spPick(names,want){const W=spNorm(want.label),T=(want.tokens||[]).map(spNorm).filter(Boolean);
  return names.find(n=>spNorm(n)===W)||(T.length?names.find(n=>{const N=' '+spNorm(n)+' ';return T.every(t=>N.includes(' '+t+' '))}):null)||((want.alt||[]).length?names.find(n=>(want.alt||[]).some(a=>spNorm(n).includes(spNorm(a)))):null)||null}
 /* folder plan for one target: list of {label,tokens} segments under the root */
+async function spPickBld(){const pid=S.cur,pp=prop();let names=[];try{SPX.kids={};names=await spKids(SP_CFG.root)}catch(e){toast(e.message);return}
+ const o=modal(`<h3>SharePoint folder for building ${esc(pp.short||pp.no)}</h3><p class="hint">Everything for this building (tenant documents, maintenance, Excel) goes inside this folder › the building's folder, whoever is signed in.</p><label>Folder</label><select id="spBf"><option value="">Find automatically</option>${names.filter(n=>!/app data/i.test(n)).map(n=>`<option ${((spSt().bldF||{})[pid])===n?'selected':''}>${esc(n)}</option>`).join('')}</select><div style="margin-top:10px"><button class="btn pri" id="spBok">Save</button></div>`,null);
+ $('#spBok',o).onclick=()=>{const st=spSt();st.bldF=st.bldF||{};const v=$('#spBf',o).value;if(v)st.bldF[pid]=v;else delete st.bldF[pid];st.paths={};save();o.remove();render();toast('Saved')}}
 function spUserFolder(){const st=spSt();st.users=st.users||{};return SPX.acct?st.users[(SPX.acct.username||'').toLowerCase()]||'':''}
-function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||p.no||o.propId,U={label:spUserFolder(),tokens:[]},B0={label:'Building '+b,tokens:[String(b)]};const B=[U,B0];
+function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||p.no||o.propId,U={label:spUserFolder(),tokens:[],bld:o.propId},B0={label:'Building '+b,tokens:[String(b)]};const B=[U,B0];
  if(o.area==='tenant')return [...B,{label:'Tenants',tokens:['tenant']},{label:spClean(o.unit+' - '+(o.tenant||'')),tokens:[String(o.unit)]},{label:o.sub,tokens:[]}];
  if(o.area==='maint')return [...B,{label:'Maintenance',tokens:['maintenance']},{label:spClean(o.supplier||'General'),tokens:spNorm(o.supplier||'general').split(' ').slice(0,2)}];
  if(o.area==='other')return [...B,{label:'Other documents',tokens:['other']}];
@@ -3047,8 +3050,14 @@ function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||
  if(o.area==='excel')return [...B,{label:'Excel reports',tokens:['excel']}];
  return [...B,{label:'Backups',tokens:['backup']}]}
 /* resolve a segment list to a path; collects folders that would need creating */
+async function spBldFolder(pid){const st=spSt();st.bldF=st.bldF||{};if(st.bldF[pid])return st.bldF[pid];
+ const p=S.properties.find(x=>x.id===pid)||{},b=String(p.short||p.no||pid),names=await spKids(SP_CFG.root),hits=[];
+ for(const n of names){if(/app data|backup/i.test(n))continue;let kids=[];try{kids=await spKids(SP_CFG.root+'/'+n)}catch(_){}if(spPick(kids,{label:'Building '+b,tokens:[b]}))hits.push(n)}
+ if(hits.length===1){st.bldF[pid]=hits[0];save();return hits[0]}
+ const mine=spUserFolder();if(hits.includes(mine))return mine;if(hits.length>1)throw new Error('Building '+b+' is in more than one SharePoint folder ('+hits.join(', ')+') — choose its folder in Settings › SharePoint');
+ if(!mine)throw new Error('Choose your SharePoint folder first (Settings › SharePoint › Change)');return mine}
 async function spResolve(segs,need){const st=spSt();let path=SP_CFG.root,created=false;
- for(const s of segs){const key=path+'|'+s.label;if(st.paths[key]){path=st.paths[key];continue}
+ for(let s of segs){if(s.bld){const f=await spBldFolder(s.bld);s={label:f,tokens:[]};if(!f)throw new Error('No SharePoint folder for this building')}const key=path+'|'+s.label;if(st.paths[key]){path=st.paths[key];continue}
   let hit=null;if(!created){const names=await spKids(path);hit=spPick(names,s)}
   if(hit){path=path+'/'+hit;st.paths[key]=path}else{need.add(path+'/'+s.label);path=path+'/'+s.label;created=true}}
  return path}
@@ -3096,12 +3105,12 @@ let save0=()=>{};
 function renderSpBadge(){const e=document.getElementById('spBadge');if(e)e.innerHTML=spBadgeHtml()}
 function spSkipOld(){const st=spSt();spItems().forEach(x=>st.done[x.id]='existing');st.baseline=st.baseline||new Date().toISOString();st.pending=0;save0();renderSpBadge();toast('Old documents skipped — only new uploads will go to SharePoint')}
 function spBadgeHtml(){const st=spSt();return spOn()?`Connected as <b>${esc(SPX.acct.username||'')}</b> · your folder: <b>${esc(spUserFolder()||'not chosen')}</b> <button class="btn sm" onclick="spPickUser(true)">Change</button>${st.last?' · last upload '+fd(st.last.slice(0,10)):''}${st.pending?` · <span style="color:var(--red)">${st.pending} file(s) waiting for your approval</span> <button class="btn sm pri" onclick="spSync(true)">Review</button> <button class="btn sm" onclick="spSkipOld()">Skip old documents (upload only new)</button>`:''}`:'Not connected'}
-function spCard(){return `<div class="card"><b>SharePoint</b><p class="hint" style="margin:6px 0">Files go to: ${esc(SP_CFG.host+SP_CFG.site)} › ${esc(SP_CFG.root)}</p><div id="spBadge" class="hint">${spBadgeHtml()}</div>
+function spCard(){const bf=(spSt().bldF||{})[S.cur],pp=prop();return `<div class="card"><b>SharePoint</b><p class="hint" style="margin:6px 0">Files go to: ${esc(SP_CFG.host+SP_CFG.site)} › ${esc(SP_CFG.root)}</p><div id="spBadge" class="hint">${spBadgeHtml()}</div>${spOn()?`<div class="hint" style="margin-top:6px">Folder of building <b>${esc(pp.short||pp.no)}</b>: <b>${esc(bf||'found automatically (the user folder that already has this building)')}</b> <button class="btn sm" onclick="spPickBld()">Change</button></div>`:''}
  <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" style="width:auto" ${spSt().auto?'checked':''} onchange="spSt().auto=this.checked;save0();toast(this.checked?'SharePoint: new documents upload automatically':'SharePoint: you approve every upload')"> Upload new documents to SharePoint automatically (no approval box)</label>
  <div style="margin-top:8px;display:flex;gap:8px">${spOn()?'<button class="btn pri" onclick="spSync(true)">Review and upload</button><button class="btn" onclick="spSignOut()">Sign out</button>':'<button class="btn pri" onclick="spConnect()">Connect to SharePoint</button>'}</div></div>`}
 (function spHooks(){const o=save;save0=o;save=function(){o.apply(this,arguments);if(spOn()){clearTimeout(SPX.timer);SPX.timer=setTimeout(()=>spSync(true,true,!!spSt().auto),1500)}};
- const sx=saveXlsx;saveXlsx=async function(z,name){await sx(z,name);if(spOn())spSaveFile('excel',name,await z.generateAsync({type:'blob',compression:'DEFLATE'}))};
- const wx=()=>{if(window.XLSX&&!XLSX._spw){const w=XLSX.writeFile;XLSX.writeFile=function(wb,name,opt){const r=w.call(XLSX,wb,name,opt);if(spOn())spSaveFile('excel',name,new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})]));return r};XLSX._spw=1}};wx();setTimeout(wx,3000);
+ 
+ const wx=()=>{if(window.XLSX&&!XLSX._spw){const w=XLSX.writeFile;XLSX.writeFile=function(wb,name,opt){return w.call(XLSX,wb,name,opt)};XLSX._spw=1}};wx();setTimeout(wx,3000);
  if(location.protocol!=='file:'&&!(window.opener&&window.opener!==window))spInit().then(async()=>{if(SPX.acct){try{const site=await gf('/sites/'+SP_CFG.host+':'+SP_CFG.site);const d=await gf('/sites/'+site.id+'/drive');SPX.drive=d.id;render();spSync(false)}catch(e){console.error(e)}}}).catch(()=>{})})();
 
 /* ================= Activity log — what was done in the app ================= */
@@ -3281,16 +3290,16 @@ async function xlUpload(pid,k){if(!spOn())throw new Error('Connect to SharePoint
  if(!r){const need=new Set(),path=await spResolve(spSegs({propId:pid,area:'excel'}),need);if(need.size)await spCreate(need);const nm=K[1]+' '+(p.short||p.no)+'.xlsx';r=await spPut(path,nm,blob);xlSet(pid,k,{id:r&&r.id,name:(r&&r.name)||spClean(nm),webUrl:r&&r.webUrl})}
  actLog(K[1]+' Excel updated in SharePoint ('+(xlGet(pid,k)||{}).name+')',pid);save()}
 const pdcUpload=pid=>xlUpload(pid,'pdc');
-function xlCheck(){if(!XLX.ready)return;(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>{const key=p.id+'|'+k,f=xlFp(p.id,k);if(XLX.fp[key]!==f){XLX.fp[key]=f;if(xlAutoOn()&&spOn())XLX.q.add(key)}}));
+function xlCheck(){if(!XLX.ready)return;(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>{const key=p.id+'|'+k,f=xlFp(p.id,k);if(XLX.fp[key]!==f){XLX.fp[key]=f;if(xlAutoOn()&&spOn()&&xlGet(p.id,k))XLX.q.add(key)}}));
  if([...XLX.q].some(x=>x.startsWith(S.cur+'|'))){clearTimeout(XLX.timer);XLX.timer=setTimeout(xlRun,5000)}}
 async function xlRun(){if(XLX.busy){clearTimeout(XLX.timer);XLX.timer=setTimeout(xlRun,3000);return}XLX.busy=true;
  try{for(const key of [...XLX.q]){const [pid,k]=key.split('|');if(pid!==S.cur)continue;XLX.q.delete(key);try{await xlUpload(pid,k)}catch(e){console.error(e);toast((XL_KINDS.find(x=>x[0]===k)||[,''])[1]+' Excel: '+(e.message||'upload failed'))}}}finally{XLX.busy=false}}
 (function xlHook(){const o=save;save=function(){const r=o.apply(this,arguments);try{xlCheck()}catch(e){console.error(e)}return r};
  setTimeout(()=>{try{(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>XLX.fp[p.id+'|'+k]=xlFp(p.id,k)))}catch(_){}XLX.ready=true},4500);
  setInterval(()=>{if(XLX.ready&&!XLX.busy&&[...XLX.q].some(x=>x.startsWith(S.cur+'|'))&&spOn())xlRun()},8000)})();
-function xlCard(){const p=prop();return `<div class="card"><b>Excel files in SharePoint — ${esc(p.short||p.no)}</b><p class="hint" style="margin:6px 0">Each connected Excel is rewritten by the app when its data changes (receipt, cheque, unit, maintenance…). Older versions stay in the file's Version history.</p>
+function xlCard(){const p=prop();return `<div class="card"><b>Excel files in SharePoint — ${esc(p.short||p.no)}</b><p class="hint" style="margin:6px 0">Connect your existing Excel files. Each connected Excel is rewritten by the app when its data changes (receipt, cheque, unit, maintenance…); nothing new is created in SharePoint. Older versions stay in the file's Version history.</p>
  <label style="display:flex;gap:6px;align-items:center;margin:6px 0"><input type="checkbox" style="width:auto" ${xlAutoOn()?'checked':''} onchange="S.settings.pdcAuto=this.checked;save()"> Update automatically</label>
- <div class="tw"><table class="t"><tr><th>Excel</th><th>File in SharePoint</th><th></th></tr>${XL_KINDS.map(([k,l])=>{const t=xlGet(S.cur,k);return `<tr><td><b>${l}</b></td><td>${t?`${esc(t.name)}${t.webUrl?` · <a href="${esc(t.webUrl)}" target="_blank" rel="noopener">Open</a>`:''}`:`<span class="hint">Not connected — the first update creates ${esc(l+' '+(p.short||p.no))}.xlsx</span>`}</td>
+ <div class="tw"><table class="t"><tr><th>Excel</th><th>File in SharePoint</th><th></th></tr>${XL_KINDS.map(([k,l])=>{const t=xlGet(S.cur,k);return `<tr><td><b>${l}</b></td><td>${t?`${esc(t.name)}${t.webUrl?` · <a href="${esc(t.webUrl)}" target="_blank" rel="noopener">Open</a>`:''}`:`<span class="hint">Not connected — click Connect existing and pick your Excel</span>`}</td>
   <td style="white-space:nowrap">${spOn()?`<button class="btn sm" onclick="xlPick('${k}')">Connect existing</button> <button class="btn sm" onclick="xlUpload(S.cur,'${k}').then(()=>{toast('${l} Excel updated');render()}).catch(e=>toast(e.message))">${t?'Update now':'Create now'}</button>${t?` <button class="btn sm" onclick="xlSet(S.cur,'${k}',null);save();render()">Disconnect</button>`:''}`:''}</td></tr>`}).join('')}</table></div>
  ${spOn()?'':'<p class="hint">Connect to SharePoint first (above).</p>'}</div>`}
 async function xlPick(k){const pid=S.cur,p=prop(),K=XL_KINDS.find(x=>x[0]===k),o=modal(`<h3>Connect existing ${K[1]} Excel — ${esc(p.short||p.no)}</h3><div class="bar"><input type="search" id="pkq" value="${esc(K[2])}" placeholder="Search SharePoint by file name"><button class="btn" id="pkGo">Search</button></div><div id="pkL" class="hint" style="margin-top:10px">Searching…</div>`,null);$('.modal',o).style.width='min(900px,100%)';
