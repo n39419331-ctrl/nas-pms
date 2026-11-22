@@ -1083,7 +1083,7 @@ const DESCS=['Rent','Rent Payment','Rental Payment – 1st Instalment','Rental P
 const CHQ_STATUS=['Received','Deposited','Cleared','Bounced','Returned','Deleted'];
 const COLS=[ // key, header (as in the Excel property list), numeric?, hiddenInPrint
  ['unit','Unit #'],['type','Unit Type'],['sqm','Sqm',1],['lease','Lease'],['tenant','Tenant Name'],['start','Start Date','d'],['end','End Date','d'],
- ['tawthiq','Tawthiq Amount',1],['actual','Actual Amount',1],['nextRent','Next Rent',1,1],['aver','AVER.MAIN 1/7',0,1],['note','Note'],['phone','Phone number'],['deposit','S. deposit',1],['status','Status']];
+ ['tawthiq','Tawthiq Amount',1],['actual','Actual Amount',1],['nextRent','Next Rent',1,1],['aver','AVER.MAIN 1/7',0,1],['parking','Parking No'],['note','Note'],['phone','Phone number'],['deposit','S. deposit',1],['status','Status']];
 
 /* ---------- state ---------- */
 let S;
@@ -1209,14 +1209,14 @@ function vUnits(){
   bindTop();
   const draw=()=>{const q=uq.toLowerCase();const rows=U.map((u,i)=>[u,i]).filter(([u])=>(!us||u.status===us)&&(!q||[u.unit,u.tenant,u.phone,u.note,u.type].join(' ').toLowerCase().includes(q)));
     $('#cnt').textContent=rows.length+' of '+U.length+' units';
-    $('#ut').innerHTML='<tr>'+COLS.map(c=>`<th class="${c[2]===1?'r':''}">${c[1]}</th>`).join('')+'<th>Parking</th><th></th></tr>'+rows.map(([u,i])=>{
+    $('#ut').innerHTML='<tr>'+COLS.map(c=>`<th class="${c[2]===1?'r':''}">${c[1]}</th>`).join('')+'<th></th></tr>'+rows.map(([u,i])=>{
       const dd=u.status==='Occupied'?days(u.end):null;
       return '<tr>'+COLS.map(([k,h,n])=>{let v=u[k];
         if(n==='d')v=fd(v);else if(n===1)v=k==='deposit'&&v===0?'0':fa(v);
         if(k==='end'&&dd!=null&&dd<=60)v+=' '+(dd<0?'<span class="tag red">expired</span>':'<span class="tag amb">'+dd+'d</span>');
         else if(k==='status')v='<span class="tag '+(u.status==='Vacant'?'mut':'grn')+'">'+esc(u.status)+'</span>';
         else if(n!=='d'&&n!==1)v=esc(v);
-        return `<td class="${n===1?'r':''}">${v}</td>`}).join('')+`<td>${unitHasParking(S.cur,u)?'<span class="tag grn">Has parking</span>':''}</td><td><button class="btn sm" data-e="${i}">Edit</button></td></tr>`}).join('')};
+        return `<td class="${n===1?'r':''}">${v}</td>`}).join('')+`<td><button class="btn sm" data-e="${i}">Edit</button></td></tr>`}).join('')};
   draw();
   $('#q').oninput=e=>{uq=e.target.value;draw()};$('#fs').onchange=e=>{us=e.target.value;draw()};
   $('#ut').onclick=e=>{const b=e.target.closest('[data-e]');if(b)unitForm(+b.dataset.e)};
@@ -1225,7 +1225,7 @@ function vUnits(){
   $('#bImp').onclick=()=>$('#fImp').click();$('#fImp').onchange=e=>{if(e.target.files[0])importList(e.target.files[0])};
 }
 function unitForm(i){
-  const U=units(),u=i>=0?{...U[i]}:{unit:'',type:'2 BHK',sqm:'',lease:'New',tenant:'',start:'',end:'',tawthiq:'',actual:'',nextRent:'',aver:'',note:'',phone:'',deposit:0,status:'Vacant'};
+  const U=units(),u=i>=0?{...U[i]}:{unit:'',type:'2 BHK',sqm:'',lease:'New',tenant:'',start:'',end:'',tawthiq:'',actual:'',nextRent:'',aver:'',parking:'',note:'',phone:'',deposit:0,status:'Vacant'};
   const f=(k,l,t='text',ex='')=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(u[k])}" ${ex}></div>`;
   const o=modal(`<h3>${i>=0?'Edit unit '+esc(u.unit):'Add unit'}</h3><div class="grid g3">
    ${f('unit','Unit #')}${f('type','Unit Type')}${f('sqm','Sqm','number')}
@@ -1233,7 +1233,7 @@ function unitForm(i){
    <div style="grid-column:span 2">${f('tenant','Tenant Name')}</div>
    ${f('start','Start Date','date')}${f('end','End Date','date')}${f('phone','Phone number')}
    ${f('tawthiq','Tawthiq Amount','number')}${f('actual','Actual Amount','number')}${f('nextRent','Next Rent','number')}
-   ${f('aver','AVER.MAIN 1/7')}${f('deposit','S. deposit','number')}
+   ${f('aver','AVER.MAIN 1/7')}${f('parking','Parking No')}${f('deposit','S. deposit','number')}
    <div><label>Status</label><select data-k="status"><option ${u.status==='Occupied'?'selected':''}>Occupied</option><option ${u.status==='Vacant'?'selected':''}>Vacant</option></select></div>
    <div style="grid-column:span 3">${f('note','Note')}</div></div>
    ${i>=0?'<div style="margin-top:10px"><button class="btn sm danger" id="del">Delete unit</button></div>':''}`,ov=>{
@@ -1275,7 +1275,9 @@ function importList(file){
     const hi=a.findIndex(r=>String(r[0]).trim().toLowerCase()==='unit #');if(hi<0){toast('Could not find the "Unit #" header row');return}
     const info={};a.slice(0,hi).forEach(r=>{const k=String(r[0]).trim().toLowerCase();if(k)info[k]=r[1]});
     const num=v=>v===''||v==null?'':(isNaN(+v)?'':+v);
-    const list=a.slice(hi+1).filter(r=>String(r[0]).trim()!==''&&String(r[1]+r[4]+r[14]).trim()!=='').map(r=>({unit:String(r[0]).trim(),type:String(r[1]).trim(),sqm:num(r[2]),lease:String(r[3]).trim(),tenant:String(r[4]).trim(),start:toISO(r[5]),end:toISO(r[6]),tawthiq:num(r[7]),actual:num(r[8]),nextRent:num(r[9]),aver:r[10]===''?'':r[10],note:String(r[11]).trim(),phone:r[12],deposit:num(r[13])||0,status:String(r[14]).trim()||(r[4]?'Occupied':'Vacant')}));
+    const H=a[hi].map(x=>String(x).trim().toLowerCase()),ci=(re,d)=>{const i=H.findIndex(x=>re.test(x));return i>=0?i:d};
+    const C={type:ci(/^(u\.tybe|u\.type|unit type)$/,1),sqm:ci(/^sqm$/,2),lease:ci(/^lease$/,3),tenant:ci(/^tenant/,4),start:ci(/^start/,5),end:ci(/^end/,6),tawthiq:ci(/^tawthiq|^annual rent/,7),actual:ci(/^actual/,8),nextRent:ci(/^next rent/,9),aver:ci(/^aver/,10),parking:ci(/^parking/,-1),note:ci(/^note/,11),phone:ci(/^phone/,12),deposit:ci(/deposit/,13),status:ci(/^status/,14)},g=(r,k)=>C[k]<0?'':r[C[k]];
+    const list=a.slice(hi+1).filter(r=>String(r[0]).trim()!==''&&String(g(r,'type')+g(r,'tenant')+g(r,'status')).trim()!=='').map(r=>({unit:String(r[0]).trim(),type:String(g(r,'type')).trim(),sqm:num(g(r,'sqm')),lease:String(g(r,'lease')).trim(),tenant:String(g(r,'tenant')).trim(),start:toISO(g(r,'start')),end:toISO(g(r,'end')),tawthiq:num(g(r,'tawthiq')),actual:num(g(r,'actual')),nextRent:num(g(r,'nextRent')),aver:g(r,'aver')===''?'':g(r,'aver'),parking:String(g(r,'parking')).trim(),note:String(g(r,'note')).trim(),phone:g(r,'phone'),deposit:num(g(r,'deposit'))||0,status:String(g(r,'status')).trim()||(g(r,'tenant')?'Occupied':'Vacant')}));
     const no=String(info['property #']||'').trim();
     modal(`<h3>Import property list</h3><p>Found <b>${list.length}</b> units${no?' for <b>'+esc(no)+'</b>':''}.</p><p>This will <b>replace</b> the current list of <b>${esc(prop().no)}</b> (${units().length} units). Receipts and cheques are not touched.</p>`,()=>{
       S.units[S.cur]=list;const p=prop();
@@ -2427,16 +2429,16 @@ const PL_HDR=['Unit #','u.tybe','Sqm','Lease','Tenant Name','Start Date','End Da
 const fdx=iso=>{if(!iso)return'';const [y,m,d]=String(iso).split('-');return d+'-'+MON[+m-1]+'-'+y};
 async function copyListRows(){
  const U=units(),cell=(k,v)=>{if(v===''||v==null)return '';if(k==='start'||k==='end')return fdx(v);return String(v).replace(/[\t\r\n]+/g,' ').trim()};
- const pk=u=>unitHasParking(S.cur,u)?'Has parking':'';const txt=U.map(u=>COLS.map(([k])=>cell(k,u[k])).join('\t')+'\t'+pk(u)).join('\n');
+ const txt=U.map(u=>COLS.map(([k])=>cell(k,u[k])).join('\t')).join('\n');
  // same alignment / number format as the Rep-107 template rows, thin black borders, Calibri 11
- const AL={unit:'left',type:'left',sqm:'center',lease:'left',tenant:'left',start:'center',end:'center',tawthiq:'center',actual:'center',nextRent:'left',aver:'left',note:'left',phone:'left',deposit:'center',status:'center'};
+ const AL={unit:'left',type:'left',sqm:'center',lease:'left',tenant:'left',start:'center',end:'center',tawthiq:'center',actual:'center',nextRent:'left',aver:'left',parking:'center',note:'left',phone:'left',deposit:'center',status:'center'};
  const NUM={sqm:1,tawthiq:1,actual:1,deposit:1},bd='border:.5pt solid #000;font-family:Calibri;font-size:11pt;';
  const hc=(k,v)=>{const st=bd+'text-align:'+(AL[k]||'left')+';';if(v===''||v==null)return `<td style="${st}"></td>`;
   if(NUM[k]&&!isNaN(+v))return `<td style="${st}mso-number-format:'\\#\\,\\#\\#0\\.00'">${+v}</td>`;
   if(k==='start'||k==='end')return `<td style="${st}mso-number-format:'dd\\-mmm\\-yy'">${fdx(v)}</td>`;
   if(k==='unit'&&/^\d+$/.test(String(v)))return `<td style="${st}mso-number-format:'General'">${v}</td>`;
   return `<td style="${st}mso-number-format:'\\@'">${esc(cell(k,v))}</td>`};
- const html='<html><head><meta charset="utf-8"></head><body><table style="border-collapse:collapse">'+U.map(u=>'<tr>'+COLS.map(([k])=>hc(k,u[k])).join('')+hc('parking',pk(u))+'</tr>').join('')+'</table></body></html>';
+ const html='<html><head><meta charset="utf-8"></head><body><table style="border-collapse:collapse">'+U.map(u=>'<tr>'+COLS.map(([k])=>hc(k,u[k])).join('')+'</tr>').join('')+'</table></body></html>';
  let ok=false;try{await navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([txt],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]);ok=true}catch(e){try{await navigator.clipboard.writeText(txt);ok=true}catch(e2){}}
  if(!ok){const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();try{ok=document.execCommand('copy')}catch(e){}ta.remove()}
  if(ok)toast(U.length+' units copied (columns A–P) — click cell A17 in your Excel and paste (Ctrl+V)');
@@ -2474,13 +2476,14 @@ async function exportList(){
   if(hdrChanged(p,'resUnits'))x=setCellVal(x,'B11',p.resUnits,1);if(hdrChanged(p,'comUnits'))x=setCellVal(x,'B12',p.comUnits,1);if(hdrChanged(p,'location'))x=setCellVal(x,'B13',p.location);
   // cell styles and row height are taken from the template's first unit row (row 17)
   const SX={},RA=((x.match(/<row r="17"([^>]*)>/)||[])[1]||' spans="1:15"').replace(/ r="17"/,'').replace('spans="1:15"','spans="1:16"');
-  x=x.replace(/(<row r="16"[^>]*?)spans="1:15"/,'$1spans="1:16"').replace(/(<c r="O16"[^>]*>.*?<\/c>)/s,'$1<c r="P16" s="10" t="inlineStr"><is><t>Parking</t></is></c>').replace('</cols>','<col min="16" max="16" width="14" customWidth="1"/></cols>').replace(/<autoFilter ref="A16:O(\d+)"/,'<autoFilter ref="A16:P$1"');[...((x.match(/<row r="17"[^>]*>(.*?)<\/row>/s)||[])[1]||'').matchAll(/<c r="([A-O])17"[^>]*? s="(\d+)"/g)].forEach(m=>SX[m[1]]=m[2]);
+  x=x.replace(/(<row r="16"[^>]*?)spans="1:15"/,'$1spans="1:16"').replace(/(<c r="O16"[^>]*>.*?<\/c>)/s,'$1<c r="P16" s="10" t="inlineStr"><is><t>Status</t></is></c>').replace(/<col min="12" max="12"[^>]*\/>.*?<\/cols>/s,'<col min="12" max="12" width="14" style="2" customWidth="1"/><col min="13" max="13" width="19.25" style="2" customWidth="1"/><col min="14" max="14" width="0.375" customWidth="1"/><col min="15" max="15" width="1.75" style="2" customWidth="1"/><col min="16" max="16" width="20.75" style="2" customWidth="1"/></cols>').replace(/<autoFilter ref="A16:O(\d+)"/,'<autoFilter ref="A16:P$1"');[...((x.match(/<row r="17"[^>]*>(.*?)<\/row>/s)||[])[1]||'').matchAll(/<c r="([A-O])17"[^>]*? s="(\d+)"/g)].forEach(m=>SX[m[1]]=m[2]);
+  x=setCellVal(x,'L16','Parking No');x=setCellVal(x,'M16','Note');x=setCellVal(x,'N16','Phone number');x=setCellVal(x,'O16','S. deposit ');
   const last=Math.max(66,16+U.length);
   for(let r=17;r<=last;r++){const u=U[r-17];
    if(!u){x=dropRow(x,r);continue}
    x=putRow(x,r,`<row r="${r}"${RA}>`+cA('A'+r,SX.A,u.unit)+cS('B'+r,SX.B,u.type)+cN('C'+r,SX.C,u.sqm)+cS('D'+r,SX.D,u.lease)+cS('E'+r,SX.E,u.tenant)+
     (u.start?cN('F'+r,SX.F,xlDate(u.start)):`<c r="F${r}" s="${SX.F}"/>`)+(u.end?cN('G'+r,SX.G,xlDate(u.end)):`<c r="G${r}" s="${SX.G}"/>`)+cN('H'+r,SX.H,u.tawthiq)+cN('I'+r,SX.I,u.actual)+cN('J'+r,SX.J,u.nextRent)+
-    cS('K'+r,SX.K,u.aver)+cS('L'+r,SX.L,u.note)+cS('M'+r,SX.M,u.phone)+cN('N'+r,SX.N,u.deposit)+cS('O'+r,SX.O,u.status)+cS('P'+r,SX.O,unitHasParking(p.id,u)?'Has parking':'')+'</row>')}
+    cS('K'+r,SX.K,u.aver)+cS('L'+r,SX.O,u.parking)+cS('M'+r,SX.L,u.note)+cS('N'+r,SX.M,u.phone)+cN('O'+r,SX.N,u.deposit)+cS('P'+r,SX.O,u.status)+'</row>')}
   x=x.replace(/<dimension ref="[^"]*"\/>/,`<dimension ref="A1:P${Math.max(16,16+U.length)}"/>`);
   if(16+U.length>80){x=x.replace(/<autoFilter ref="A16:P\d+"/,'<autoFilter ref="A16:P'+(16+U.length)+'"');
    let w=await z.file('xl/workbook.xml').async('string');w=w.replace(/\$A\$16:\$O\$80/,'$A$16:$O$'+(16+U.length)).replace(/\$A\$1:\$P\$81/,'$A$1:$P$'+(17+U.length));z.file('xl/workbook.xml',w,{createFolders:false})}
@@ -3940,6 +3943,10 @@ const PL146={"U":[],"C":[]};
  let nc=0;S.cheques=S.cheques||[];PL146.C.forEach(([unit,no,amt,date,bank,st,ten,cs,ce,camt,bounce,bpaid,notice])=>{if(S.cheques.some(c=>c.propId===pid&&String(c.unit)===unit&&String(c.chqNo)===String(no)))return;
   const u=U.find(x=>String(x.unit)===unit)||{};S.cheques.push({id:uid(),propId:pid,chqNo:no,bank,payer:ten||u.tenant||'',unit,amount:amt,chqDate:date,receivedDate:'',receiptNo:'',status:st,depositDate:'',clearedDate:'',note:notice||'',files:[],...(cs?{cStart:cs,cEnd:ce,cAmt:camt}:{}),...(bounce?{bounced:bounce,bouncePaid:bpaid}:{}),src:'pcd146'});nc++});
  S.settings.pl146done=1;save();setTimeout(()=>toast('146 loaded: '+U.length+' units, '+nc+' cheques, '+nt+' new tenant records'),2500)})();
+const PL891N=[];
+(function load891Parking(){S.settings=S.settings||{};if(S.settings.pl891p||!PL891N.length)return;const pid='P-891';if(!S.units[pid])return;
+ const U=S.units[pid];PL891N.forEach(o=>{const ex=U.find(x=>String(x.unit)===o.unit);if(ex)Object.assign(ex,o);else U.push({...o})});
+ S.settings.pl891p=1;save();setTimeout(()=>toast('891 property list updated with parking numbers'),2000)})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
