@@ -3951,6 +3951,27 @@ const PL891N=[];
  Object.keys(S.units||{}).forEach(pid=>(S.units[pid]||[]).forEach(u=>{if(!ph(u.status))return; // a property list imported with the old column order: Parking No went into Phone, Phone into Status
   if(!u.parking)u.parking=String(u.phone==null?'':u.phone).trim();u.phone=String(u.status).trim();u.status=u.tenant?'Occupied':'Vacant';n++}));
  if(n){save();setTimeout(()=>toast(n+' units fixed: parking numbers moved out of Phone — re-import the property list to bring back Notes and S. deposit'),2500)}}catch(e){console.error(e)}})();
+const D5257={"U":[],"C":[],"RC":[],"MT":[]};
+(function load5257All(){S.settings=S.settings||{};if(S.settings.d5257done||!D5257.U.length)return;const pid='P-5257',p=S.properties.find(x=>x.id===pid);if(!p)return;
+ if(!p.location)p.location='Plot 78,Sector E 16_2, Abu Dhabi Island, Tourist Club';if(!+p.resUnits)p.resUnits=27;if(!+p.comUnits)p.comUnits=6;
+ const rn=u=>{const s=String(u==null?'':u).trim(),m=s.toUpperCase().match(/^(OFFICE|SHOP)\s*(\d+)$/);return m?m[2]+(m[1]==='OFFICE'?'OF':'SH'):s};
+ S.units[pid]=S.units[pid]||[];S.units[pid].forEach(u=>u.unit=rn(u.unit));['tenants','cheques','receipts','mrcpts','expenses'].forEach(k=>(S[k]||[]).forEach(x=>{if(x.propId===pid){if(x.unit!=null)x.unit=rn(x.unit);if(x.flat!=null)x.flat=rn(x.flat)}}));
+ const U=S.units[pid],K=['unit','type','sqm','lease','tenant','start','end','tawthiq','actual','nextRent','aver','parking','note','phone','deposit','status'];
+ D5257.U.forEach(a=>{const o={};K.forEach((k,i)=>o[k]=a[i]);const ex=U.find(x=>String(x.unit)===o.unit);if(ex)Object.assign(ex,o);else U.push(o)});
+ const ord=new Map(D5257.U.map((a,i)=>[a[0],i]));U.sort((a,b)=>(ord.has(String(a.unit))?ord.get(String(a.unit)):9999)-(ord.has(String(b.unit))?ord.get(String(b.unit)):9999));
+ const kk=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();S.tenants=S.tenants||[];
+ U.forEach(u=>{if(!u.tenant)return;let t=S.tenants.find(x=>x.propId===pid&&String(x.unit)===String(u.unit)&&kk(x.name)===kk(u.tenant));
+  if(!t){t={id:uid(),propId:pid,unit:String(u.unit),name:u.tenant,eid:'',nationality:'',dob:'',gender:'',eidExpiry:'',mobile:'',email:'',passport:'',notes:'',files:[],docs:[]};S.tenants.push(t)}
+  if(!t.mobile&&u.phone)t.mobile=waNum(String(u.phone))});
+ S.cheques=S.cheques||[];D5257.C.forEach(([unit,no,amt,date,bank,st,ten,bounce,bpaid,note])=>{if(S.cheques.some(c=>c.propId===pid&&String(c.unit)===unit&&String(c.chqNo)===String(no)))return;
+  S.cheques.push({id:uid(),propId:pid,chqNo:no,bank,payer:ten,unit,amount:amt,chqDate:date,receivedDate:'',receiptNo:'',status:st,depositDate:'',clearedDate:'',note:note||'',files:[],...(bounce?{bounced:bounce,bouncePaid:bpaid}:{}),src:'pcd5257'})});
+ S.stmt=S.stmt||{entries:[]};let g='';D5257.RC.forEach(([date,desc,ten,unit,meth,chq,deb,cr])=>{if(cr>0){g=uid();if(S.stmt.entries.some(e=>e.propId===pid&&e.date===date&&String(e.unit)===unit&&+e.credit===+cr))return;
+   S.stmt.entries.push({propId:pid,grp:g,date,tenant:ten,unit,method:meth,chq,receiptNo:'',id:uid(),kind:'rent',desc,debit:0,credit:cr,src:'rc5257'})}
+  else if(deb>0&&g){const r=S.stmt.entries.find(e=>e.grp===g&&e.kind==='rent');if(!r||S.stmt.entries.some(e=>e.grp===g&&e.kind==='fee'))return;S.stmt.entries.push({...r,id:uid(),kind:'fee',desc,debit:Math.round(deb*100)/100,credit:0})}});
+ S.expenses=S.expenses||[];const ex=S.expenses.filter(e=>e.propId===pid);
+ D5257.MT.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no){const x=ex.find(e=>String(e.mrNo||'')===no||e.invNo==='Receipt '+no);if(x){x.xlDesc=desc;x.xlNotes=notes;x.mrNo=no;return}}
+  S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl5257'})});
+ S.settings.d5257done=1;save();setTimeout(()=>toast('5257 loaded: '+U.length+' units, '+D5257.C.length+' cheques, '+D5257.RC.length+' rent collection lines, '+D5257.MT.length+' maintenance entries'),3000)})();
 (function patchLandlord891(){const p=(S.properties||[]).find(x=>x.id==='P-891');if(p&&p.landlord==='MR. ABDULLA SAIF RASHED AL NUAIMIM'){p.landlord='MR. ABDULLA SAIF RASHED MOHAMMED ALNUAIMI';save()}})();
 (function patchTenant101(){})();
 setInterval(()=>{if((S.renewals||[]).some(r=>r.start<=todayISO()))render()},600000);
