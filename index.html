@@ -1692,7 +1692,7 @@ function printChq(){const C=chqFiltered(),G=pdcGroups(C);if(!G.length){toast('No
   <style>#printArea td{border:.5px solid #999;padding:3px;vertical-align:top}#printArea tr{page-break-inside:avoid}#printArea thead{display:table-header-group}</style>`;
  $('#pageStyle').textContent='@page{size:A3 landscape;margin:10mm}';$('#printArea').innerHTML=html;document.body.classList.add('printing');
  setTimeout(()=>{window.print();setTimeout(()=>{document.body.classList.remove('printing');$('#printArea').innerHTML=''},300)},150)}
-function chqFiltered(){const q=cq.toLowerCase();return S.cheques.filter(c=>(c.method||'Cheque')==='Cheque').filter(c=>c.propId===S.cur&&(!cs||c.status===cs)&&(!q||[c.chqNo,c.unit,c.payer,c.bank,c.receiptNo].join(' ').toLowerCase().includes(q)))}
+function chqFiltered(){const q=cq.toLowerCase();return S.cheques.filter(c=>(c.method||'Cheque')==='Cheque').filter(c=>c.propId===S.cur&&(!cs||(cs==='Overdue'?c.status==='Received'&&c.chqDate&&c.chqDate<todayISO():c.status===cs))&&(!q||[c.chqNo,c.unit,c.payer,c.bank,c.receiptNo].join(' ').toLowerCase().includes(q)))}
 /* deposit slip: attach the bank/ATM deposit receipt -> reads cheque numbers + date -> you confirm -> cheques marked Deposited */
 function depositSlip(){
  const o=modal(`<h3>Deposit slip</h3><p class="hint">Attach the bank / ATM deposit receipt (photo or PDF). The app reads the cheque numbers and date, then you confirm.</p>
@@ -1742,7 +1742,7 @@ function chqWaText(C){const p=prop();C=C.filter(c=>!c.virtual).slice().sort((a,b
  return ['*Cheques – '+(p.short||p.no)+'* ('+C.length+')',...C.map(c=>c.unit+' | '+c.chqNo+' | '+fd(c.chqDate)+' | '+fa(c.amount)+' | '+c.status),'Total: AED '+fa(C.reduce((a,c)=>a+(+c.amount||0),0))].join('\n')}
 function vChq(){
   $('#main').innerHTML=topbar('Unit Status & Payment Schedule',`<button class="btn pri" id="cAdd">+ Add cheque</button><button class="btn" id="cDep">Deposit slip</button><button class="btn" id="cWa">WhatsApp</button><button class="btn" id="cCopy">Copy for Excel</button><button class="btn" id="cExp">Export Excel</button><button class="btn" id="cPrn">Print</button>`)+chqUpcoming()+`
-  <div class="bar"><input type="search" id="cqi" placeholder="Search cheque no, unit, payer…" value="${esc(cq)}"><select id="cfs"><option value="">All status</option>${CHQ_STATUS.map(s=>`<option ${s===cs?'selected':''}>${s}</option>`).join('')}</select><span class="hint" id="cc"></span></div>
+  <div class="bar"><input type="search" id="cqi" placeholder="Search cheque no, unit, payer…" value="${esc(cq)}"><select id="cfs"><option value="">All status</option><option value="Overdue" ${cs==='Overdue'?'selected':''}>Overdue (date passed, not deposited)</option>${CHQ_STATUS.map(s=>`<option ${s===cs?'selected':''}>${s}</option>`).join('')}</select><span class="hint" id="cc"></span></div>
   <div class="tw"><table class="t pdc" id="ct" style="border-collapse:collapse;font-size:12px"></table></div><p class="hint">Same layout as your “Property Unit Status and Tenant Payment Schedule” — one block per tenant contract. Cheques and first payments on receipts are added here automatically. Search and status filter also apply to Copy and Export.</p>`;
   bindTop();
   const draw=()=>{const C=chqFiltered(),G=pdcGroups(C);
