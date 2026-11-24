@@ -3377,7 +3377,7 @@ const XL_KINDS=[['pdc','PDC','PDC',()=>exportPDC(pdcCheques(S.cur))],['rc','Rent
 const XLX={timer:null,fp:{},q:new Set(),busy:false,ready:false,cap:null,last:{}};
 const pdcCheques=pid=>(S.cheques||[]).filter(c=>c.propId===pid&&(c.method||'Cheque')==='Cheque');
 const xlFp=(pid,k)=>{const p=S.properties.find(x=>x.id===pid)||{};
- if(k==='pdc')return JSON.stringify([pdcCheques(pid).map(c=>[c.id,c.chqNo,c.amount,c.chqDate,c.status,c.unit,c.payer,c.bank,c.depositDate,c.clearedDate,c.receiptNo,c.note,c.bounced,c.bouncePaid]),(S.units[pid]||[]).map(u=>[u.unit,u.tenant,u.start,u.end,u.tawthiq,u.status,u.phone,u.deposit])]);
+ if(k==='pdc')return JSON.stringify([pdcCheques(pid).map(c=>[c.id,c.pcdSheet,c.chqNo,c.amount,c.chqDate,c.status,c.unit,c.payer,c.bank,c.depositDate,c.clearedDate,c.receiptNo,c.note,c.bounced,c.bouncePaid]),(S.units[pid]||[]).map(u=>[u.unit,u.tenant,u.start,u.end,u.tawthiq,u.status,u.phone,u.deposit])]);
  if(k==='rc')return JSON.stringify((S.stmt&&S.stmt.entries||[]).filter(e=>e.propId===pid));
  if(k==='pl')return JSON.stringify([S.units[pid]||[],p.landlord,p.location,p.resUnits,p.comUnits]);
  if(k==='mt')return JSON.stringify((S.expenses||[]).filter(e=>e.propId===pid));
@@ -3391,7 +3391,32 @@ async function xlBuild(k){const K=XL_KINDS.find(x=>x[0]===k),t0=toast;XLX.cap={}
  return c.z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'})}
 /* PCD REPORT LIST — the building's own PDC layout and colours (146, 5257) */
 const PCD_OWN=new Proxy({},{get:(_,pid)=>['146','5257'].includes(bldNo(pid))?bldNo(pid):undefined}),PCD_META={"146": {"h": 10, "blk": {"A": "278", "B": "278", "C": "278", "D": "278", "E": "281", "F": "284", "G": "285", "H": "285", "Q": "67", "R": "298"}, "cont": {"A": "279", "B": "279", "C": "279", "D": "279", "E": "282", "F": "279", "G": "286", "H": "286", "Q": "13", "R": "299"}, "cat": {"applied": {"I": "106", "J": "107", "K": "116", "L": "116", "M": "121", "N": "107", "O": "67", "P": "67"}, "unapplied": {"I": "18", "J": "19", "K": "20", "L": "20", "M": "41", "N": "19", "O": "13", "P": "13"}, "deleted": {"I": "147", "J": "148", "K": "149", "L": "149", "M": "151", "N": "152", "O": "13", "P": "13"}, "bounced": {"I": "47", "J": "27", "K": "48", "L": "48", "M": "27", "N": "10", "O": "78", "P": "161"}}, "txt": {"applied": "Applied", "unapplied": "Unapplied", "deleted": "DELETED", "bounced": "Unapplied"}, "dnum": {"G": true, "L": false}, "dkind": false, "ht": "15", "hdr": {"sdate": "F1"}}, "5257": {"h": 19, "blk": {"A": "24", "B": "24", "C": "24", "D": "24", "E": "24", "F": "25", "G": "37", "H": "37", "Q": "24", "R": "25"}, "cont": {"A": "24", "B": "24", "C": "24", "D": "24", "E": "24", "F": "25", "G": "37", "H": "37", "Q": "24", "R": "25"}, "cat": {"applied": {"I": "43", "J": "44", "K": "44", "L": "45", "M": "44", "N": "26", "O": "24", "P": "24"}, "deleted": {"I": "50", "J": "51", "K": "51", "L": "51", "M": "51", "N": "34", "O": "24", "P": "24"}, "unapplied": {"I": "56", "J": "42", "K": "42", "L": "37", "M": "42", "N": "24", "O": "24", "P": "24"}, "bounced": {"I": "56", "J": "42", "K": "42", "L": "37", "M": "42", "N": "24", "O": "24", "P": "24"}}, "txt": {"applied": "Applied", "deleted": "Deleted", "unapplied": "UnApplied", "bounced": "Unapplied"}, "dnum": {"G": true, "L": true}, "dkind": true, "ht": "13.5", "hdr": {"pno": "C9", "ll": "C10", "sdate": "C11", "loc": "C14"}}};
+/* PCD 146 Sheet2 = cheques of the next (renewed) contract, one block per unit like the office file */
+const PCD_S2_146=[["102", "843829"], ["102", "843830"], ["102", "843831"], ["102", "843832"], ["204", "000165"], ["204", "000166"], ["204", "000168"], ["402", "000063"], ["402", "000064"], ["402", "000065"], ["403", "000066"], ["503", "000010"], ["503", "000009"], ["504", "000032"], ["1005", "281291"], ["1005", "281292"], ["1006", "281293"], ["1504", "000041"], ["1504", "000042"], ["1505", "000043"], ["1601", "500001"], ["1601", "500004"], ["1601", "500003"], ["5SH", "700062"], ["5SH", "700063"], ["5SH", "700064"]];
+function pcdNext(c,C){if(c.pcdSheet===2)return true;if(c.pcdSheet===1||c.src==='pcd146'||!c.cStart)return false;
+ const U=x=>String(x||'').trim().toUpperCase(),base=C.filter(x=>U(x.unit)===U(c.unit)&&x.src==='pcd146'&&x.cStart&&x.pcdSheet!==2).map(x=>x.cStart).sort().pop();return !!(base&&c.cStart>base)}
+async function pcdSheet2(z,M,N2,blk,dc){let x=await z.file('xl/worksheets/sheet2.xml').async('string');const U=v=>String(v||'').trim().toUpperCase(),by={};N2.forEach(c=>(by[U(c.unit)]=by[U(c.unit)]||[]).push(c));
+ Object.values(by).forEach(L=>L.sort((a,b)=>String(a.chqDate).localeCompare(String(b.chqDate))));
+ const order=(units()||[]).map(u=>String(u.unit));Object.keys(by).forEach(k=>{if(!order.some(o=>U(o)===k))order.push(by[k][0].unit)});
+ const cl=c=>c.status==='Deleted'?'deleted':/Bounced|Returned/.test(c.status)?'bounced':payStat(c)==='Applied'?'applied':'unapplied',map={B:'I',C:'J',D:'K',E:'L',F:'M',G:'N',H:'O',I:'P'};
+ let r=3;const rows=[],mg=[];
+ order.forEach(un=>{const L=by[U(un)]||[],n=Math.max(L.length,blk[U(un)]||3),r0=r;
+  for(let i=0;i<n;i++){const c=L[i],a=i===0?'278':i===n-1?'280':'279';let s=i===0?(/^\d+$/.test(un)?cN('A'+r,a,+un):cS('A'+r,a,un)):`<c r="A${r}" s="${a}"/>`;
+   if(c){const K=M.cat[cl(c)];s+=cN('B'+r,K.I,c.amount)+cS('C'+r,K.J,c.method||'Cheque')+cS('D'+r,K.K,c.chqNo)+dc('E'+r,K.L,c.chqDate,M.dnum.L)+cS('F'+r,K.M,c.bank||'')+cS('G'+r,K.N,M.txt[cl(c)])+cS('H'+r,K.O||'77',pdcBounce(c))+dc('I'+r,K.P||'77',c.bouncePaid||'',M.dnum.L)+`<c r="J${r}" s="77"/>`}
+   else s+=`<c r="B${r}" s="18"/><c r="C${r}" s="19"/><c r="D${r}" s="20"/><c r="E${r}" s="20"/><c r="F${r}" s="19"/>`+cS('G'+r,'10','Unapplied')+`<c r="H${r}" s="77"/><c r="I${r}" s="77"/><c r="J${r}" s="77"/>`;
+   rows.push(`<row r="${r}" spans="1:10" ht="15" customHeight="1">${s}</row>`);r++}
+  if(n>1)mg.push(`<mergeCell ref="A${r0}:A${r-1}"/>`)});
+ x=x.replace('</sheetData>',rows.join('')+'</sheetData>');
+ if(/<mergeCells count="\d+">/.test(x))x=x.replace(/<mergeCells count="(\d+)">/,(m0,k)=>`<mergeCells count="${+k+mg.length}">`+mg.join(''));
+ else x=x.replace(/(<\/sheetData>)/,'$1<mergeCells count="'+mg.length+'">'+mg.join('')+'</mergeCells>');
+ x=x.replace(/<dimension ref="[^"]*"\/>/,`<dimension ref="A1:J${r-1}"/>`).replace(/<sheetView([^>]*) topLeftCell="[^"]*"/,'<sheetView$1');
+ z.file('xl/worksheets/sheet2.xml',x,{createFolders:false})}
+/* tag the 26 next-contract cheques that were on Sheet2 of the office PCD 146 file */
+setTimeout(function tagPcd146S2(){if(typeof S==='undefined'||!S)return;S.settings=S.settings||{};if(S.settings._pcd146s2)return;const n=v=>String(v||'').trim().replace(/^0+/,'').toUpperCase();let k=0;
+ (S.cheques||[]).forEach(c=>{if(c.propId!=='P-146'&&bldNo(c.propId)!=='146')return;if(PCD_S2_146.some(([u,no])=>n(u)===n(c.unit)&&n(no)===n(c.chqNo))){c.pcdSheet=2;k++}});
+ if(k){S.settings._pcd146s2=1;save()}},1300);
 async function buildPcdOwn(pid,C){const key=PCD_OWN[pid],M=PCD_META[key],z=await JSZip.loadAsync(tplBytes('a_tpl_pcd'+key));let x=await z.file('xl/worksheets/sheet1.xml').async('string');
+ const two=key==='146'&&!!z.file('xl/worksheets/sheet2.xml'),N2=two?C.filter(c=>pcdNext(c,C)):[];if(two)C=C.filter(c=>!N2.includes(c));
  const old=S.cur;S.cur=pid;try{const p=prop(),G=pdcGroups(C),H=M.hdr,dmy=iso=>iso?fd(iso):'';
   if(H.pno)x=setCellVal(x,H.pno,p.short||p.no);if(H.ll)x=setCellVal(x,H.ll,p.landlord||'');if(H.loc)x=setCellVal(x,H.loc,p.location||'');if(H.sdate)x=setCellVal(x,H.sdate,fd(todayISO()));
   const dc=(ref,s,iso,num)=>!iso?`<c r="${ref}" s="${s}"/>`:num?cN(ref,s,xlDate(iso)):cS(ref,s,dmy(iso));
@@ -3410,6 +3435,7 @@ async function buildPcdOwn(pid,C){const key=PCD_OWN[pid],M=PCD_META[key],z=await
   else if(mg.length){const at=x.search(/<(phoneticPr|conditionalFormatting|dataValidations|hyperlinks|printOptions|pageMargins|pageSetup|headerFooter|drawing|legacyDrawing|tableParts|extLst)\b/);const ins=`<mergeCells count="${mg.length}">${mg.join('')}</mergeCells>`;x=at>0?x.slice(0,at)+ins+x.slice(at):x.replace('</worksheet>',ins+'</worksheet>')}
   x=x.replace(/<dimension ref="[^"]*"\/>/,`<dimension ref="A1:R${Math.max(r-1,M.h)}"/>`).replace(/<autoFilter ref="([A-Z]+\d+):([A-Z]+)\d+"/,(m,a,b)=>`<autoFilter ref="${a}:${b}${Math.max(r-1,M.h)}"`);
   z.file('xl/worksheets/sheet1.xml',x,{createFolders:false});
+  if(two){const blk={};G.forEach(g=>blk[String(g.unit).toUpperCase()]=g.L.length);await pcdSheet2(z,M,N2,blk,dc)}
   return z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'})}finally{S.cur=old}}
 async function xlUpload(pid,k){if(!spOn())throw new Error('Connect to SharePoint first');if(S.cur!==pid){XLX.q.add(pid+'|'+k);return}const p=S.properties.find(x=>x.id===pid);if(!p)return;const K=XL_KINDS.find(x=>x[0]===k);
  const blob=k==='pdc'&&PCD_OWN[pid]?await buildPcdOwn(pid,pdcCheques(pid)):await xlBuild(k),t=xlGet(pid,k);let r=null;
