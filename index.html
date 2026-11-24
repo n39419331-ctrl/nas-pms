@@ -2035,6 +2035,8 @@ function holdForm(pid,unitNo){const u=units(pid).find(x=>String(x.unit)===String
 // If the lease is later renewed / extended, the status goes back to Occupied.
 function autoVacate(){const t0=todayISO();let ch=false;
  S.properties.forEach(p=>(S.units[p.id]||[]).forEach(u=>{
+  // 146: an expired lease stays Occupied (tenant often still in, contract follow-up) — only marked Vacant by hand, like the office property list
+  if(bldNo(p.id)==='146'){if(u.autoVac){if(u.status==='Vacant'&&(u.tenant||'').trim())u.status='Occupied';delete u.autoVac;ch=true}return}
   if(u.end&&u.end<t0&&u.status!=='Vacant'&&(u.tenant||'').trim()&&!pendRen(p.id,u.unit)){u.status='Vacant';u.autoVac=1;ch=true}
   else if(u.autoVac&&u.end&&u.end>=t0){if(u.status==='Vacant')u.status='Occupied';delete u.autoVac;ch=true}}));
  if(ch)save();return ch}
