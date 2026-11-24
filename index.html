@@ -1833,8 +1833,13 @@ function chqRead(multi){
    R.forEach(r=>S.cheques.push({id:uid(),propId:S.cur,chqNo:r.chqNo,bank:r.bank,payer:P,unit:U,amount:r.amount===''?'':+r.amount,chqDate:r.chqDate,receivedDate:Rd,receiptNo:Rn,status:'Received',depositDate:'',clearedDate:'',note:'',method:'Cheque',files:ids}));
    save();o.remove();render();toast(R.length+' cheque'+(R.length>1?'s':'')+' saved')}};
  $('#crF',o).onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const st=$('#crSt',o);photos=[];const found=[],banks=[];let pages=0,used=0;
+  let C=[];try{for(const f of files){const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});photos.push({id:uid(),docFile:true,name:f.name,type:f.type,data})}
+   tessStatus=m=>st.textContent=m;C=await readCheques(files,m=>st.textContent=m)}catch(err){console.error(err)}
+  if(C.length){C.sort((x,y)=>String(x.chq).localeCompare(String(y.chq)));const bn=x=>x?(UAE_BANKS.find(b=>b.startsWith(x))||x):'';const B=[...new Set(C.map(x=>bn(x.bank)).filter(Boolean))];
+   build(C.map(x=>({chqNo:x.chq,bank:bn(x.bank),amount:x.amount||'',chqDate:x.date||''})),B.length===1?B[0]:'');
+   st.innerHTML='Found <b>'+C.length+' cheque'+(C.length>1?'s':'')+'</b> (cheque no + bank read from the printed line). <b>Type the amount and date for each row</b>'+(C.some(x=>x.amount)?' — amount filled where all cheques read the same, check it':'')+'.';return}
   try{const w=await getTess();tessStatus=m=>st.textContent=m;
-   for(const f of files){const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});photos.push({id:uid(),docFile:true,name:f.name,type:f.type,data});
+   for(const f of files){
     for(const c of await fileToCanvases(f,8)){pages++;st.textContent='Reading '+f.name+' (page '+pages+')…';const t=(await w.recognize(forOCR(c))).data.text||'';
      if(!/cheque|pay\s*against|or\s*(the\s*)?bearer|شيك/i.test(t)||/transfer\s*(completed|advice|confirmation|amount)|beneficiary/i.test(t))continue;used++;
      let best=null,bn=0;BANKS.forEach(([nm,re])=>{const k=(t.match(new RegExp(re.source,'gi'))||[]).length;if(k>bn){bn=k;best=nm}});if(best)banks.push(UAE_BANKS.find(b=>b.startsWith(best))||best);
@@ -3544,8 +3549,47 @@ function mrImportReview(R){const ok=R.filter(r=>!r.err&&!r.dup),p=prop();const o
    S.mrcpts.push(rec);const ex0=S.expenses.find(e=>e.propId===S.cur&&!e.mrId&&(String(e.mrNo||'')===String(rec.no)||e.invNo==='Receipt '+rec.no));if(ex0){ex0.mrId=rec.id;ex0.files=(ex0.files||[]).concat(ids)}else S.expenses.push({id:uid(),propId:S.cur,date:rec.date,unit:rec.flat,category:'Maintenance – General',desc:rec.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+rec.no,amount:rec.sub,vat:rec.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:ids,mrId:rec.id});n++}
   const mx=Math.max(0,...S.mrcpts.map(x=>+x.no||0));if(mx>=(+S.settings.mrNext||1000582))S.settings.mrNext=mx+1;
   save();o.remove();render();toast(n+' maintenance receipt'+(n===1?'':'s')+' imported')}}
+/* ================= WhatsApp alerts — free CallMeBot API, messages go to your own WhatsApp ================= */
+const WA={get(){try{return JSON.parse(localStorage.getItem('nas_wa')||'{}')}catch(_){return {}}},set(v){try{localStorage.setItem('nas_wa',JSON.stringify(v))}catch(_){}},busy:false,last:null};
+async function waSend(text,cfg){cfg=cfg||WA.get();if(!cfg.phone||!cfg.key)throw new Error('Enter your WhatsApp number and CallMeBot key first');
+ const u='https://api.callmebot.com/whatsapp.php?phone='+encodeURIComponent(cfg.phone.replace(/[^\d+]/g,''))+'&text='+encodeURIComponent(String(text).slice(0,1800))+'&apikey='+encodeURIComponent(cfg.key.trim());
+ await fetch(u,{mode:'no-cors',cache:'no-store'});WA.last=new Date()}
+const waBld=pid=>{const p=(S.properties||[]).find(x=>x.id===pid);return p?(p.short||p.no):''};
+function waDaily(){const t=todayISO(),add=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)},w7=add(7),d30=add(30),L=[];
+ const C=(S.cheques||[]).filter(c=>c.status!=='Deleted'&&(c.method||'Cheque')==='Cheque');
+ const due=C.filter(c=>c.status==='Received'&&c.chqDate&&c.chqDate>=t&&c.chqDate<=w7).sort((a,b)=>a.chqDate.localeCompare(b.chqDate));
+ const over=C.filter(c=>c.status==='Received'&&c.chqDate&&c.chqDate<t);
+ const bnc=C.filter(c=>/Bounced|Returned/.test(c.status)&&!c.bouncePaid);
+ const lease=[];(S.properties||[]).forEach(p=>(S.units[p.id]||[]).forEach(u=>{if(u.end&&u.end>=t&&u.end<=d30)lease.push({p:p.id,u})}));lease.sort((a,b)=>a.u.end.localeCompare(b.u.end));
+ const ln=c=>'• '+waBld(c.propId)+' unit '+(c.unit||'?')+' – chq '+c.chqNo+' – '+fd(c.chqDate)+' – AED '+fa(c.amount);
+ L.push('*NAS daily summary – '+fd(t)+'*');
+ L.push('','*Cheques due in 7 days: '+due.length+'* (AED '+fa(due.reduce((a,c)=>a+(+c.amount||0),0))+')');due.slice(0,15).forEach(c=>L.push(ln(c)));if(due.length>15)L.push('… and '+(due.length-15)+' more');
+ L.push('','*Past date, not deposited: '+over.length+'*');over.slice(0,10).forEach(c=>L.push(ln(c)));if(over.length>10)L.push('… and '+(over.length-10)+' more');
+ L.push('','*Bounced / returned not paid: '+bnc.length+'*');bnc.slice(0,10).forEach(c=>L.push(ln(c)));
+ L.push('','*Leases ending in 30 days: '+lease.length+'*');lease.slice(0,15).forEach(x=>L.push('• '+waBld(x.p)+' unit '+x.u.unit+(x.u.tenant?' – '+x.u.tenant:'')+' – ends '+fd(x.u.end)));if(lease.length>15)L.push('… and '+(lease.length-15)+' more');
+ return L.join('\n')}
+async function waTick(){const cfg=WA.get();if(!cfg.on||!cfg.phone||!cfg.key||WA.busy||!navigator.onLine)return;WA.busy=true;
+ try{const A=(S.activity||[]).filter(a=>a.t>(cfg.seen||''));
+  if(cfg.act!==false&&A.length){const N=A.slice(-25),msg='*NAS app – '+A.length+' change'+(A.length>1?'s':'')+'*\n'+N.map(a=>'• '+new Date(a.t).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' '+(waBld(a.p)?waBld(a.p)+': ':'')+a.x+(a.who&&a.who!=='This computer'?' ('+String(a.who).split('@')[0]+')':'')).join('\n')+(A.length>25?'\n… and '+(A.length-25)+' earlier':'');
+   await waSend(msg,cfg)}
+  if(A.length)cfg.seen=A.reduce((m,a)=>a.t>m?a.t:m,cfg.seen||'');
+  if(cfg.daily!==false&&cfg.lastDay!==todayISO()&&new Date().getHours()>=7){await waSend(waDaily(),cfg);cfg.lastDay=todayISO()}
+  const c2=WA.get();WA.set({...c2,seen:cfg.seen,lastDay:cfg.lastDay})}
+ catch(e){console.error('WhatsApp',e)}finally{WA.busy=false}}
+setInterval(waTick,60000);setTimeout(waTick,20000);
+function waCard(){const c=WA.get();return `<div class="card"><b>WhatsApp alerts (free)</b><p class="hint" style="margin:6px 0">Sends to <b>your own</b> WhatsApp, from this computer, while the app is open. Each person sets up their own number on their own computer.<br>
+ 1) Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com</a> on your phone and save the CallMeBot number shown there in your contacts. 2) Send it on WhatsApp: <i>I allow callmebot to send me messages</i>. 3) Type below the API key it replies with.</p>
+ <div class="grid g3"><div><label>Your WhatsApp number</label><input id="waPh" value="${esc(c.phone||'')}" placeholder="+9715xxxxxxxx"></div><div><label>CallMeBot API key</label><input id="waKey" value="${esc(c.key||'')}"></div><div><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waOn" ${c.on?'checked':''} style="width:auto"> Alerts on</label></div></div>
+ <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waAct" ${c.act!==false?'checked':''} style="width:auto"> Every change in the app (receipts, cheques, tenants… by any user), grouped every minute</label>
+ <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waDay" ${c.daily!==false?'checked':''} style="width:auto"> Daily summary (first time the app is open after 7 AM): cheques due, not deposited, bounced, leases ending</label></div>
+ <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" onclick="waSave()">Save</button><button class="btn" onclick="waSave(1)">Send test message</button><button class="btn" onclick="waSave(2)">Send today's summary now</button><span class="hint" id="waSt">${WA.last?'Last sent '+WA.last.toLocaleTimeString():''}</span></div></div>`}
+async function waSave(k){const c=WA.get(),ph=$('#waPh').value.trim(),key=$('#waKey').value.trim(),on=$('#waOn').checked;
+ if(on&&(!ph||!key)){toast('Enter your WhatsApp number and API key');return}
+ const n={...c,phone:ph,key,on,act:$('#waAct').checked,daily:$('#waDay').checked};if(on&&!c.on)n.seen=new Date().toISOString(); // start from now, no flood of old changes
+ WA.set(n);try{if(k===1){await waSend('NAS Property Management: test message ✔',n);toast('Test sent — it can take up to a minute to arrive')}else if(k===2){await waSend(waDaily(),n);WA.set({...WA.get(),lastDay:todayISO()});toast('Summary sent')}else toast('WhatsApp alerts saved')}catch(e){toast(e.message)}
+ const s=$('#waSt');if(s&&WA.last)s.textContent='Last sent '+WA.last.toLocaleTimeString()}
 function vSet(){
-  $('#main').innerHTML=topbar('Settings')+spCard()+xlCard()+clCard()+`
+  $('#main').innerHTML=topbar('Settings')+spCard()+xlCard()+clCard()+waCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
   <div class="card"><b>Management fee (Rent Collection)</b><div class="grid g3" style="margin-top:10px"><div><label>Management fee %</label><input id="fp" type="number" step="0.01" value="${esc(S.settings.feePct)}"></div><div><label>VAT %</label><input id="vp" type="number" step="0.01" value="${esc(S.settings.vatPct)}"></div>
    <div><label>VAT treatment</label><select id="vm"><option value="none" ${S.settings.vatMode==='none'?'selected':''}>No VAT on this fee</option><option value="incl" ${S.settings.vatMode==='incl'?'selected':''}>Fee already includes VAT</option><option value="excl" ${S.settings.vatMode==='excl'?'selected':''}>VAT added on top of fee</option></select></div></div>
