@@ -3563,9 +3563,18 @@ function mrImportReview(R){const ok=R.filter(r=>!r.err&&!r.dup),p=prop();const o
   save();o.remove();render();toast(n+' maintenance receipt'+(n===1?'':'s')+' imported')}}
 /* ================= WhatsApp alerts — free CallMeBot API, messages go to your own WhatsApp ================= */
 const WA={get(){try{return JSON.parse(localStorage.getItem('nas_wa')||'{}')}catch(_){return {}}},set(v){try{localStorage.setItem('nas_wa',JSON.stringify(v))}catch(_){}},busy:false,last:null};
-async function waSend(text,cfg){cfg=cfg||WA.get();if(!cfg.phone||!cfg.key)throw new Error('Enter your WhatsApp number and CallMeBot key first');
- const u='https://api.callmebot.com/whatsapp.php?phone='+encodeURIComponent(cfg.phone.replace(/[^\d+]/g,''))+'&text='+encodeURIComponent(String(text).slice(0,1800))+'&apikey='+encodeURIComponent(cfg.key.trim());
+async function waSend(text,cfg){cfg=cfg||WA.get();text=String(text);
+ if(cfg.via==='tg'){if(!cfg.tgToken||!cfg.tgChat)throw new Error('Enter your Telegram bot token and click Find my chat ID first');
+  const r=await fetch('https://api.telegram.org/bot'+cfg.tgToken.trim()+'/sendMessage?chat_id='+encodeURIComponent(cfg.tgChat)+'&disable_web_page_preview=true&text='+encodeURIComponent(text.replace(/\*/g,'').slice(0,4000)));
+  const j=await r.json().catch(()=>({}));if(!j.ok)throw new Error('Telegram: '+(j.description||('error '+r.status)));WA.last=new Date();return}
+ if(!cfg.phone||!cfg.key)throw new Error('Enter your WhatsApp number and CallMeBot key first');
+ const u='https://api.callmebot.com/whatsapp.php?phone='+encodeURIComponent(cfg.phone.replace(/[^\d+]/g,''))+'&text='+encodeURIComponent(text.slice(0,1800))+'&apikey='+encodeURIComponent(cfg.key.trim());
  await fetch(u,{mode:'no-cors',cache:'no-store'});WA.last=new Date()}
+async function tgFindChat(){const tk=$('#tgTok').value.trim();if(!tk){toast('Paste the bot token first');return}
+ try{const j=await (await fetch('https://api.telegram.org/bot'+tk+'/getUpdates')).json();if(!j.ok)throw new Error(j.description||'token not accepted');
+  const m=(j.result||[]).map(u=>u.message||u.my_chat_member||u.channel_post).filter(Boolean).pop();if(!m||!m.chat){toast('No message found — open your bot in Telegram, press Start or send "hi", then click again');return}
+  $('#tgChat').value=m.chat.id;toast('Chat found: '+(m.chat.first_name||m.chat.title||m.chat.id))}catch(e){toast('Telegram: '+e.message)}}
+const waReady=c=>c.via==='tg'?!!(c.tgToken&&c.tgChat):!!(c.phone&&c.key);
 const waBld=pid=>{const p=(S.properties||[]).find(x=>x.id===pid);return p?(p.short||p.no):''};
 function waDaily(){const t=todayISO(),add=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)},w7=add(7),d30=add(30),L=[];
  const C=(S.cheques||[]).filter(c=>c.status!=='Deleted'&&(c.method||'Cheque')==='Cheque');
@@ -3580,7 +3589,7 @@ function waDaily(){const t=todayISO(),add=n=>{const d=new Date();d.setDate(d.get
  L.push('','*Bounced / returned not paid: '+bnc.length+'*');bnc.slice(0,10).forEach(c=>L.push(ln(c)));
  L.push('','*Leases ending in 30 days: '+lease.length+'*');lease.slice(0,15).forEach(x=>L.push('• '+waBld(x.p)+' unit '+x.u.unit+(x.u.tenant?' – '+x.u.tenant:'')+' – ends '+fd(x.u.end)));if(lease.length>15)L.push('… and '+(lease.length-15)+' more');
  return L.join('\n')}
-async function waTick(){const cfg=WA.get();if(!cfg.on||!cfg.phone||!cfg.key||WA.busy||!navigator.onLine)return;WA.busy=true;
+async function waTick(){const cfg=WA.get();if(!cfg.on||!waReady(cfg)||WA.busy||!navigator.onLine)return;WA.busy=true;
  try{const A=(S.activity||[]).filter(a=>a.t>(cfg.seen||''));
   if(cfg.act!==false&&A.length){const N=A.slice(-25),msg='*NAS app – '+A.length+' change'+(A.length>1?'s':'')+'*\n'+N.map(a=>'• '+new Date(a.t).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' '+(waBld(a.p)?waBld(a.p)+': ':'')+a.x+(a.who&&a.who!=='This computer'?' ('+String(a.who).split('@')[0]+')':'')).join('\n')+(A.length>25?'\n… and '+(A.length-25)+' earlier':'');
    await waSend(msg,cfg)}
@@ -3589,16 +3598,23 @@ async function waTick(){const cfg=WA.get();if(!cfg.on||!cfg.phone||!cfg.key||WA.
   const c2=WA.get();WA.set({...c2,seen:cfg.seen,lastDay:cfg.lastDay})}
  catch(e){console.error('WhatsApp',e)}finally{WA.busy=false}}
 setInterval(waTick,60000);setTimeout(waTick,20000);
-function waCard(){const c=WA.get();return `<div class="card"><b>WhatsApp alerts (free)</b><p class="hint" style="margin:6px 0">Sends to <b>your own</b> WhatsApp, from this computer, while the app is open. Each person sets up their own number on their own computer.<br>
- 1) Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com</a> on your phone and save the CallMeBot number shown there in your contacts. 2) Send it on WhatsApp: <i>I allow callmebot to send me messages</i>. 3) Type below the API key it replies with.</p>
- <div class="grid g3"><div><label>Your WhatsApp number</label><input id="waPh" value="${esc(c.phone||'')}" placeholder="+9715xxxxxxxx"></div><div><label>CallMeBot API key</label><input id="waKey" value="${esc(c.key||'')}"></div><div><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waOn" ${c.on?'checked':''} style="width:auto"> Alerts on</label></div></div>
- <div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waAct" ${c.act!==false?'checked':''} style="width:auto"> Every change in the app (receipts, cheques, tenants… by any user), grouped every minute</label>
+function waCard(){const c=WA.get(),tg=c.via!=='wa';return `<div class="card"><b>Phone alerts (free) — Telegram or WhatsApp</b><p class="hint" style="margin:6px 0">Sends to <b>your own</b> phone, from this computer, while the app is open. Each person sets up their own on their own computer.</p>
+ <div style="display:flex;gap:16px;margin:6px 0"><label style="display:flex;gap:6px;align-items:center"><input type="radio" name="waVia" value="tg" ${tg?'checked':''} style="width:auto" onchange="waVia()"> Telegram</label><label style="display:flex;gap:6px;align-items:center"><input type="radio" name="waVia" value="wa" ${tg?'':'checked'} style="width:auto" onchange="waVia()"> WhatsApp (CallMeBot)</label></div>
+ <div id="waTG" style="${tg?'':'display:none'}"><p class="hint">1) In Telegram search <b>@BotFather</b> → send <i>/newbot</i> → give it a name (e.g. NAS Alerts) and a username ending in <i>bot</i>. 2) Copy the <b>token</b> it gives you and paste it below. 3) Open your new bot, press <b>Start</b> (or send "hi"). 4) Click <b>Find my chat ID</b>.</p>
+  <div class="grid g3"><div style="grid-column:span 2"><label>Bot token</label><input id="tgTok" value="${esc(c.tgToken||'')}" placeholder="123456789:AA…"></div><div><label>Chat ID</label><input id="tgChat" value="${esc(c.tgChat||'')}"></div></div>
+  <div style="margin-top:6px"><button class="btn sm" onclick="tgFindChat()">Find my chat ID</button></div></div>
+ <div id="waWA" style="${tg?'display:none':''}"><p class="hint">Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener">callmebot.com</a> on your phone, save the bot number in contacts, send it <i>I allow callmebot to send me messages</i>, then type the API key it replies with.</p>
+  <div class="grid g3"><div><label>Your WhatsApp number</label><input id="waPh" value="${esc(c.phone||'')}" placeholder="+9715xxxxxxxx"></div><div><label>CallMeBot API key</label><input id="waKey" value="${esc(c.key||'')}"></div></div></div>
+ <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waOn" ${c.on?'checked':''} style="width:auto"> <b>Alerts on</b></label>
+ <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waAct" ${c.act!==false?'checked':''} style="width:auto"> Every change in the app (receipts, cheques, tenants… by any user), grouped every minute</label>
  <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="waDay" ${c.daily!==false?'checked':''} style="width:auto"> Daily summary (first time the app is open after 7 AM): cheques due, not deposited, bounced, leases ending</label></div>
  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" onclick="waSave()">Save</button><button class="btn" onclick="waSave(1)">Send test message</button><button class="btn" onclick="waSave(2)">Send today's summary now</button><span class="hint" id="waSt">${WA.last?'Last sent '+WA.last.toLocaleTimeString():''}</span></div></div>`}
-async function waSave(k){const c=WA.get(),ph=$('#waPh').value.trim(),key=$('#waKey').value.trim(),on=$('#waOn').checked;
- if(on&&(!ph||!key)){toast('Enter your WhatsApp number and API key');return}
- const n={...c,phone:ph,key,on,act:$('#waAct').checked,daily:$('#waDay').checked};if(on&&!c.on)n.seen=new Date().toISOString(); // start from now, no flood of old changes
- WA.set(n);try{if(k===1){await waSend('NAS Property Management: test message ✔',n);toast('Test sent — it can take up to a minute to arrive')}else if(k===2){await waSend(waDaily(),n);WA.set({...WA.get(),lastDay:todayISO()});toast('Summary sent')}else toast('WhatsApp alerts saved')}catch(e){toast(e.message)}
+function waVia(){const tg=document.querySelector('input[name="waVia"]:checked').value==='tg';$('#waTG').style.display=tg?'':'none';$('#waWA').style.display=tg?'none':''}
+async function waSave(k){const c=WA.get(),via=document.querySelector('input[name="waVia"]:checked').value,on=$('#waOn').checked;
+ const n={...c,via,phone:$('#waPh').value.trim(),key:$('#waKey').value.trim(),tgToken:$('#tgTok').value.trim(),tgChat:$('#tgChat').value.trim(),on,act:$('#waAct').checked,daily:$('#waDay').checked};
+ if(on&&!waReady(n)){toast(via==='tg'?'Enter the bot token and click Find my chat ID':'Enter your WhatsApp number and API key');return}
+ if(on&&!c.on)n.seen=new Date().toISOString(); // start from now, no flood of old changes
+ WA.set(n);try{if(k===1){await waSend('NAS Property Management: test message ✔',n);toast('Test sent')}else if(k===2){await waSend(waDaily(),n);WA.set({...WA.get(),lastDay:todayISO()});toast('Summary sent')}else toast('Alerts saved')}catch(e){toast(e.message)}
  const s=$('#waSt');if(s&&WA.last)s.textContent='Last sent '+WA.last.toLocaleTimeString()}
 function vSet(){
   $('#main').innerHTML=topbar('Settings')+spCard()+xlCard()+clCard()+waCard()+`
