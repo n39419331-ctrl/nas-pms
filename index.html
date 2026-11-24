@@ -370,6 +370,25 @@ html[data-theme=modern][data-mode=dark] .tag.amb{background:rgba(255,176,92,.12)
 html[data-theme=modern][data-mode=dark] .tag.grn{background:rgba(75,227,164,.12);color:#7FE3B8;border-color:rgba(75,227,164,.35)}
 html[data-theme=modern][data-mode=dark] .toast{background:#E6E8EC;color:#0D1117}
 html[data-theme=modern][data-mode=dark] .mswitch i{background:#3A3F4B}html[data-theme=modern][data-mode=dark] .mswitch input:checked+i{background:#34C759}
+
+/* Cheques page — look A (clean ledger) */
+.pdcA-w{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:calc(100vh - 230px)}
+.pdcA{border-collapse:separate;border-spacing:0;width:100%;min-width:900px;font-size:13.5px}
+.pdcA th{position:sticky;top:0;z-index:1;background:color-mix(in srgb,var(--card) 94%,var(--mut));color:var(--mut);font-weight:600;font-size:12.5px;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pdcA td{padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;color:var(--ink)}
+.pdcA th.n,.pdcA td.n{text-align:right;font-variant-numeric:tabular-nums}
+.pdcA tr.r:hover td{background:color-mix(in srgb,var(--card) 92%,#1a56db)}
+.pdcA tr.g td{background:color-mix(in srgb,var(--card) 95%,var(--mut));padding:10px 14px}
+.pdcA .gu{display:flex;gap:6px 18px;align-items:baseline;flex-wrap:wrap;white-space:normal}
+.pdcA .gu .u{font-weight:600;font-size:14.5px}.pdcA .gu .t{font-weight:500}.pdcA .gu .m{color:var(--mut);font-size:12.5px}.pdcA .gu .m i{font-style:normal;opacity:.8}
+.pdcA tr.dim td{color:var(--mut)}
+.pdcA .pill{appearance:none;-webkit-appearance:none;border:0;font:inherit;font-size:12.5px;font-weight:500;padding:3px 24px 3px 12px;border-radius:999px;line-height:1.5;width:auto;min-height:0;cursor:pointer;background-repeat:no-repeat;background-position:right 8px center;background-size:8px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23667085' stroke-width='1.6' fill='none'/%3E%3C/svg%3E")}
+.pdcA span.pill{padding:3px 12px;background-image:none;cursor:default}
+.pdcA .p-cl{background-color:#e7f6ec;color:#137333}.pdcA .p-rc{background-color:#eef2f6;color:#475467}.pdcA .p-dp{background-color:#e8f0fe;color:#1a56db}.pdcA .p-bn{background-color:#fdecec;color:#c62828}.pdcA .p-dl{background-color:#f2f4f7;color:#98a2b3;text-decoration:line-through}
+[data-mode=dark] .pdcA .p-cl{background-color:#12301d;color:#6fd48f}[data-mode=dark] .pdcA .p-rc{background-color:#232a36;color:#b3bccb}[data-mode=dark] .pdcA .p-dp{background-color:#172544;color:#8fb0ff}[data-mode=dark] .pdcA .p-bn{background-color:#3a1717;color:#ff8a8a}[data-mode=dark] .pdcA .p-dl{background-color:#22262e;color:#8a93a3}
+.pdcA .due{font-size:12px;font-weight:500;color:#b54708;background:#fff4e5;padding:2px 8px;border-radius:999px;margin-left:8px}.pdcA .due.od{color:#c62828;background:#fdecec}
+[data-mode=dark] .pdcA .due{background:#3a2a12;color:#ffb057}[data-mode=dark] .pdcA .due.od{background:#3a1717;color:#ff8a8a}
+.pdcA .act{color:#1a56db;background:none;border:0;font:inherit;font-size:13px;font-weight:500;padding:4px 6px;cursor:pointer}[data-mode=dark] .pdcA .act{color:#8fb0ff}.pdcA .act:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -1730,21 +1749,24 @@ function chqWaText(C){const p=prop();C=C.filter(c=>!c.virtual).slice().sort((a,b
 function vChq(){
   $('#main').innerHTML=topbar('Unit Status & Payment Schedule',`<button class="btn pri" id="cAdd">+ Add cheque</button><button class="btn" id="cDep">Deposit slip</button><button class="btn" id="cWa">WhatsApp</button><button class="btn" id="cCopy">Copy for Excel</button><button class="btn" id="cExp">Export Excel</button><button class="btn" id="cPrn">Print</button>`)+chqUpcoming()+`
   <div class="bar"><input type="search" id="cqi" placeholder="Search cheque no, unit, payer…" value="${esc(cq)}"><select id="cfs"><option value="">All status</option>${CHQ_STATUS.map(s=>`<option ${s===cs?'selected':''}>${s}</option>`).join('')}</select><span class="hint" id="cc"></span></div>
-  <div class="tw"><table class="t pdc" id="ct" style="border-collapse:collapse;font-size:12px"></table></div><p class="hint">Same layout as your “Property Unit Status and Tenant Payment Schedule” — one block per tenant contract. Cheques and first payments on receipts are added here automatically. Search and status filter also apply to Copy and Export.</p>`;
+  <div class="tw pdcA-w"><table class="pdcA" id="ct"></table></div><p class="hint">Same layout as your “Property Unit Status and Tenant Payment Schedule” — one block per tenant contract. Cheques and first payments on receipts are added here automatically. Search and status filter also apply to Copy and Export.</p>`;
   bindTop();
   const draw=()=>{const C=chqFiltered(),G=pdcGroups(C);
     $('#cc').textContent=C.length+' payments · '+G.length+' contracts · total '+fa(C.reduce((a,c)=>a+(+c.amount||0),0));
-    const th=(t,x)=>`<th ${x||''} style="border:1px solid #000;text-align:center;vertical-align:middle;white-space:nowrap">${t}</th>`;
-    let h='<tr>'+PUS_COLS.slice(0,9).map(t=>th(t,'rowspan=2')).join('')+th('Contract Duration','colspan=2')+th('Installment Schedule','colspan=8')+th('Tenant Contact','rowspan=2')+th('Security Deposit','rowspan=2')+th('','rowspan=2')+'</tr><tr>'+PUS_COLS.slice(9,19).map(t=>th(t)).join('')+'</tr>';
-    let bg='';const td=(v,al,rs,k)=>`<td ${rs>1?'rowspan='+rs:''} style="border:1px solid #000;text-align:${al||'center'};vertical-align:middle;white-space:nowrap;${k>=11&&k<=18&&bg?'background:'+bg:''}">${v}</td>`;
-    const fmt=(k,v)=>PUS_DATE.has(k)?fd(v):PUS_NUM.has(k)?fa(v):esc(v==null?'':v);
-    h+=G.map(g=>g.L.map((c,i)=>{const rs=g.L.length,v=pdcCells(g,c,i===0),d=c.status==='Received'?days(c.chqDate):null;let r='<tr>';bg={g:'#c6e8a4',r:'#f4b4ac'}[payCls(c)]||'';
-      v.forEach((x,k)=>{if(PUS_GRP.has(k)&&i>0)return;const rr=PUS_GRP.has(k)?rs:1;
-       if(k===16&&c.virtual)r+=td(`<b>${esc(x)}</b><br><span class="hint">Receipt ${esc(c.receiptNo)}</span>`,'center',1,k);
-       else if(k===16)r+=td(`<b>${esc(x)}</b><br><select data-s="${c.id}" style="padding:2px;width:auto;font-size:11px">${CHQ_STATUS.map(s=>`<option ${s===c.status?'selected':''}>${s}</option>`).join('')}</select>`,'center',1,k);
-       else if(k===14)r+=td(fd(x)+(d!=null&&d<=7?' <span class="tag '+(d<0?'red':'amb')+'">'+(d<0?'overdue':d+'d')+'</span>':''),'center',1,k);
-       else r+=td(fmt(k,x),k===7?'left':'center',rr,k)});
-      r+=td(c.virtual?'':`${(c.files||[]).length?`<button class="btn sm" data-cf="${c.id}">Copy</button> `:''}${(c.depFiles||[]).length?`<button class="btn sm" data-ds="${c.id}">Slip</button> `:''}<button class="btn sm" data-e="${c.id}">Edit</button>`,'left');return r+'</tr>'}).join('')).join('')||'<tr><td colspan=23 class="hint">No cheques</td></tr>';
+    // look A (clean ledger): one unit row with the contract details, then its payments; status as a coloured pill
+    const CH=[[11,'Amount (AED)','n'],[12,'Method'],[13,'Cheque no'],[14,'Cheque date'],[15,'Bank'],[16,'Status'],[17,'Bounced status'],[18,'Bounced paid date']];
+    let h='<thead><tr>'+CH.map(([k,t,n])=>`<th class="${n||''}">${t}</th>`).join('')+'<th></th></tr></thead><tbody>';
+    const pc=c=>c.status==='Deleted'?'dl':/Bounced|Returned/.test(c.status)?'bn':c.status==='Cleared'?'cl':c.status==='Deposited'?'dp':'rc';
+    h+=G.map(g=>{const v=pdcCells(g,g.L[0],true),u=g.u||{},it=(l,x)=>x===''||x==null?'':`<span class="m"><i>${l}</i> ${x}</span>`;
+      let r=`<tr class="g"><td colspan="${CH.length+1}"><div class="gu"><span class="u">Unit ${esc(g.unit)}</span><span class="t">${esc(g.tenant||'')}</span>`+
+       it('Contract',(v[9]||v[10])?fd(v[9])+' – '+fd(v[10]):'')+it('Amount',v[8]!==''&&v[8]!=null?'AED '+fa(v[8]):'')+it('Type',esc([v[3],v[5]].filter(Boolean).join(' · ')))+it('Status',esc(v[4]||''))+it('Sqm',esc(v[6]||''))+it('Contact',esc(v[19]||''))+it('Deposit',v[20]?'AED '+fa(v[20]):'')+`</div></td></tr>`;
+      r+=g.L.map(c=>{const x=pdcCells(g,c,false),d=c.status==='Received'?days(c.chqDate):null,k=pc(c);
+        const st=c.virtual?`<span class="pill p-cl">${esc(payStat(c))}</span> <span class="hint">Receipt ${esc(c.receiptNo)}</span>`:`<select class="pill p-${k}" data-s="${c.id}" title="${esc(payStat(c))}">${CHQ_STATUS.map(s=>`<option ${s===c.status?'selected':''}>${s}</option>`).join('')}</select>`;
+        const due=d!=null&&d<=7?`<span class="due ${d<0?'od':''}">${d<0?'overdue':d===0?'today':'in '+d+' day'+(d>1?'s':'')}</span>`:'';
+        return `<tr class="r${k==='dl'?' dim':''}"><td class="n">${fa(x[11])}</td><td>${esc(x[12]||'')}</td><td>${esc(x[13]||'')}</td><td>${fd(x[14])}${due}</td><td>${esc(x[15]||'')}</td><td>${st}</td><td>${esc(x[17]||'')}</td><td>${x[18]?fd(x[18]):''}</td>`+
+         `<td class="acts">${c.virtual?'':`${(c.files||[]).length?`<button class="act" data-cf="${c.id}">Copy</button>`:''}${(c.depFiles||[]).length?`<button class="act" data-ds="${c.id}">Slip</button>`:''}<button class="act" data-e="${c.id}">Edit</button>`}</td></tr>`}).join('');
+      return r}).join('')||`<tr><td colspan="${CH.length+1}" class="hint">No cheques</td></tr>`;
+    h+='</tbody>';
     $('#ct').innerHTML=h};
   draw();
   $('#cqi').oninput=e=>{cq=e.target.value;draw()};$('#cfs').onchange=e=>{cs=e.target.value;draw()};
