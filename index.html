@@ -1803,13 +1803,16 @@ function askSlip(c){if(!c)return;const o=modal(`<h3>Cheque ${esc(c.chqNo)} clear
 function chqForm(c){
   const n=c?{...c}:{id:uid(),propId:S.cur,chqNo:'',bank:'',payer:'',unit:'',amount:'',chqDate:'',receivedDate:todayISO(),receiptNo:'',status:'Received',depositDate:'',clearedDate:'',note:''};
   const f=(k,l,t='text')=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(n[k])}"></div>`;
-  const fo=modal(`<h3>${c?'Edit cheque':'Add cheque'}</h3>${c?'':'<div style="margin:-4px 0 10px"><button class="btn pri" id="cMulti">Add multiple cheques</button> <button class="btn" id="cRead">Read cheque photo</button> <span class="hint">One photo can have several cheques</span></div>'}${bankList()}<div class="grid g3">${f('chqNo','Cheque no')}<div><label>Bank</label><input data-k="bank" list="uaeBanks" value="${esc(n.bank)}" placeholder="Pick or type the bank"></div><div><label>Unit #</label><input data-k="unit" id="cfU" list="cfUL" value="${esc(n.unit)}" placeholder="Pick the unit"><datalist id="cfUL">${(units(n.propId||S.cur)||[]).map(u=>`<option value="${esc(u.unit)}">${esc(u.tenant||'')}</option>`).join('')}</datalist></div><div style="grid-column:span 2">${f('payer','Payer')}</div>${f('amount','Amount','number')}
+  const fo=modal(`<h3>${c?'Edit cheque':'Add cheque'}</h3>${c?'':'<div style="margin:-4px 0 10px"><button class="btn pri" id="cMulti">Add multiple cheques</button> <button class="btn" id="cRead">Read cheque photo</button> <span class="hint">One photo can have several cheques</span></div>'}${bankList()}<div class="grid g3">${f('chqNo','Cheque no')}<div><label>Bank</label><input data-k="bank" list="uaeBanks" value="${esc(n.bank)}" placeholder="Pick or type the bank"></div><div><label>Payment for</label><select data-k="payFor" id="cfPF"><option value="">— choose —</option>${CHQ_FOR.map(x=>`<option ${x===chqFor(n)?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Unit #</label><input data-k="unit" id="cfU" list="cfUL" value="${esc(n.unit)}" placeholder="Pick the unit"><datalist id="cfUL">${(units(n.propId||S.cur)||[]).map(u=>`<option value="${esc(u.unit)}">${esc(u.tenant||'')}</option>`).join('')}</datalist></div><div style="grid-column:span 2">${f('payer','Payer')}</div>${f('amount','Amount','number')}
    ${f('chqDate','Cheque date','date')}${f('receivedDate','Received date','date')}${f('receiptNo','Receipt no')}${f('depositDate','Deposit date','date')}${f('clearedDate','Cleared date','date')}
    <div><label>Status</label><select data-k="status">${CHQ_STATUS.map(s=>`<option ${s===n.status?'selected':''}>${s}</option>`).join('')}</select></div>${f('bouncePaid','Bounced paid date','date')}<div><label>Payment method</label><select data-k="method">${['Cheque','Bank Transfer','Cash'].map(m=>`<option ${m===(n.method||'Cheque')?'selected':''}>${m}</option>`).join('')}</select></div>
    <div style="grid-column:span 3">${f('notice','NOTICE (PDC report)')}</div><div style="grid-column:span 3">${f('note','Note')}</div></div>
    ${c?'<div style="margin-top:10px"><button class="btn sm danger" id="cdel">Delete cheque</button></div>':''}`,ov=>{
     ov.querySelectorAll('[data-k]').forEach(el=>{n[el.dataset.k]=el.type==='number'?(el.value===''?'':+el.value):el.value.trim()});
     if(!n.chqNo){toast('Cheque no is required');return false}
+    if(!n.payFor&&!c){toast('Choose what this cheque is for (Rent, Security deposit, Parking or Other)');return false}
+    if(n.payFor&&n.payFor!=='Other'&&(!c||(!c.rcLater&&!/Deposited|Cleared/.test(c.status||'')&&chqFor(c)!==n.payFor))){n.rcLater=1;n.rcPosted=0} // goes to Rent Collection when cleared
+    if(n.payFor==='Other'&&c&&c.rcLater&&!c.rcPosted)n.rcLater=0;
     const wasC=c&&c.status==='Cleared';if(n.status==='Cleared'&&!n.clearedDate)n.clearedDate=todayISO();if(c)Object.assign(c,n);else S.cheques.push(n);save();render();if(n.status==='Cleared'&&!wasC)setTimeout(()=>askSlip(c||n),50)});
   {const ui=$('#cfU');if(ui)ui.oninput=()=>{const u=(units(n.propId||S.cur)||[]).find(x=>String(x.unit)===ui.value.trim());const pi=document.querySelector('.ov [data-k="payer"]');if(u&&u.tenant&&pi&&!pi.value.trim())pi.value=u.tenant}}
   const d=$('#cdel');if(d)d.onclick=()=>{if(confirm('Delete this cheque?')){S.cheques=S.cheques.filter(x=>x.id!==c.id);save();document.querySelector('.ov').remove();render()}};
@@ -1825,7 +1828,7 @@ function chqRead(multi){
  const build=(rows,bk)=>{
   const keep=k=>{const x=$(k,o);return x?x.value:''},kU=keep('#crU'),kP=keep('#crP'),kRn=keep('#crRn');const us=units(S.cur)||[];
   $('#crBody',o).innerHTML=`${bankList()}<div class="grid g3" style="margin-top:10px"><div><label>Unit #</label><input id="crU" list="crUL" value="${esc(kU)}"><datalist id="crUL">${us.map(u=>`<option value="${esc(u.unit)}">`).join('')}</datalist></div><div style="grid-column:span 2"><label>Payer</label><input id="crP" value="${esc(kP)}"></div>
-    <div><label>Received date</label><input id="crRd" type="date" value="${todayISO()}"></div><div><label>Receipt no</label><input id="crRn" value="${esc(kRn)}"></div><div><label>Payment method</label><input value="Cheque" disabled></div></div>
+    <div><label>Received date</label><input id="crRd" type="date" value="${todayISO()}"></div><div><label>Receipt no</label><input id="crRn" value="${esc(kRn)}"></div><div><label>Payment method</label><input value="Cheque" disabled></div><div><label>Payment for</label><select id="crPF"><option value="">— choose —</option>${CHQ_FOR.map(x=>`<option>${x}</option>`).join('')}</select></div></div>
    <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Cheque no</th><th>Bank</th><th>Amount</th><th>Cheque date</th><th></th></tr><tbody id="crRows">${rows.map(rowH).join('')}</tbody></table></div>
    <div style="margin-top:8px"><button class="btn sm" id="crAdd">+ Add row</button></div>
    <div style="margin-top:12px"><button class="btn pri" id="crSave">Save cheques</button></div>`;
@@ -1841,8 +1844,8 @@ function chqRead(multi){
    const bad=R.find(r=>!r.chqNo);if(bad){toast('Every row needs a cheque no');return}
    const dup=R.find(r=>S.cheques.some(c=>c.propId===S.cur&&String(c.chqNo)===r.chqNo&&c.status!=='Deleted'));if(dup&&!confirm('Cheque '+dup.chqNo+' already exists. Save anyway?'))return;
    const ids=[];for(const ph of photos){try{await IDB.put(ph);ids.push(ph.id)}catch(_){}}
-   const U=$('#crU',o).value.trim(),P=$('#crP',o).value.trim(),Rd=$('#crRd',o).value,Rn=$('#crRn',o).value.trim();
-   R.forEach(r=>S.cheques.push({id:uid(),propId:S.cur,chqNo:r.chqNo,bank:r.bank,payer:P,unit:U,amount:r.amount===''?'':+r.amount,chqDate:r.chqDate,receivedDate:Rd,receiptNo:Rn,status:'Received',depositDate:'',clearedDate:'',note:'',method:'Cheque',files:ids}));
+   const U=$('#crU',o).value.trim(),P=$('#crP',o).value.trim(),Rd=$('#crRd',o).value,Rn=$('#crRn',o).value.trim(),PF=$('#crPF',o).value;if(!PF){toast('Choose what these cheques are for (Rent, Security deposit, Parking or Other)');return}
+   R.forEach(r=>S.cheques.push({...(PF!=='Other'?{rcLater:1,rcPosted:0}:{}),payFor:PF,id:uid(),propId:S.cur,chqNo:r.chqNo,bank:r.bank,payer:P,unit:U,amount:r.amount===''?'':+r.amount,chqDate:r.chqDate,receivedDate:Rd,receiptNo:Rn,status:'Received',depositDate:'',clearedDate:'',note:'',method:'Cheque',files:ids}));
    save();o.remove();render();toast(R.length+' cheque'+(R.length>1?'s':'')+' saved')}};
  $('#crF',o).onchange=async e=>{const files=[...e.target.files];if(!files.length)return;const st=$('#crSt',o);photos=[];const found=[],banks=[];let pages=0,used=0;
   let C=[];try{for(const f of files){const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});photos.push({id:uid(),docFile:true,name:f.name,type:f.type,data})}
@@ -2666,7 +2669,7 @@ let sf='',st=null,sq='';
 function vStmt(){
  if(st===null)st=todayISO(); // Rent Collection shows entries up to today by default (future cheque instalments appear on their date)
  const p=prop();
- $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sCopy">Copy for Excel</button><button class="btn" id="sExp">Export Excel</button>`)+`
+ $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" onclick="rcMissingDlg()">Check missing cheques</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sCopy">Copy for Excel</button><button class="btn" id="sExp">Export Excel</button>`)+`
  <div class="bar"><div style="flex:1 1 260px"><label for="sqi">Search</label><input type="search" id="sqi" value="${esc(sq)}" placeholder="Tenant, unit, description, cheque no, receipt…"></div><div><label>From</label><input type="date" id="sfi" value="${sf}" style="width:auto"></div><div><label>To</label><input type="date" id="sti" value="${st}" style="width:auto"></div><span class="hint" style="align-self:flex-end;padding-bottom:10px">Leave empty for everything. Applies to the table and the Excel export.</span></div>
  <div class="stats" id="sSum"></div><div class="tw"><table class="t" id="stt"></table></div>
  <p class="hint">Rent recorded on a receipt (description “Rent”) is added here automatically with the management fee. Fee: <b>${esc(feeDesc())}</b> — change it in Settings.</p>`;
@@ -4084,8 +4087,23 @@ const TH146={"units":[],"tenants":[]};
 (function migrateOwnerDocs(){try{let ch=0;(S.docsLib||[]).forEach(d=>{if(d.area==='legal'){d.area='owner';d.sub=ownerFolder(d.kind);ch=1}});if(ch)save()}catch(_){}})();
 (function spAutoOn1911(){S.settings=S.settings||{};if(S.settings._spauto)return;const st=S.settings.sp=S.settings.sp||{done:{},paths:{},approved:{}};st.auto=true;S.settings._spauto=1;save()})();
 /* Rent Collection: cheques received from 21 Nov 2026 are posted only when Applied (Deposited/Cleared), dated on the cleared date */
+const CHQ_FOR=['Rental Payment','Security Deposit','Parking','Other'];
+const chqFor=c=>c.payFor||(/security deposit/i.test(c.note||'')?'Security Deposit':/parking/i.test(c.note||'')?'Parking':/^rent(al)?\b/i.test(c.note||'')?'Rental Payment':'');
+/* cleared / deposited rent cheques that have no line in Rent Collection (same building, unit and cheque no) */
+function rcMissing(pid){const E=(S.stmt&&S.stmt.entries)||[],has=new Set(E.filter(e=>e.kind==='rent'&&e.chq).map(e=>e.propId+'|'+String(e.unit).toUpperCase()+'|'+String(e.chq).replace(/^0+/,'')));
+ return (S.cheques||[]).filter(c=>(!pid||c.propId===pid)&&/Deposited|Cleared/.test(c.status||'')&&(c.method||'Cheque')==='Cheque'&&chqFor(c)!=='Other'&&c.chqNo&&(c.clearedDate||c.depositDate||'')>='2026-11-21'&&!has.has(c.propId+'|'+String(c.unit).toUpperCase()+'|'+String(c.chqNo).replace(/^0+/,'')))
+  .sort((a,b)=>String(b.clearedDate||b.depositDate||b.chqDate).localeCompare(String(a.clearedDate||a.depositDate||a.chqDate)))}
+function rcMissingDlg(){const M=rcMissing(S.cur);const o=modal(`<h3>Cleared cheques not in Rent Collection — ${esc(prop().short||prop().no)}</h3>${M.length?`<p class="hint">Cheques of this building deposited / cleared from 21 Nov 2026 with no Rent Collection line for the same unit and cheque no. Older cheques may already be there under another date or without a cheque no — tick only the ones that are really missing.</p>
+ <div class="tw"><table class="t"><tr><th></th><th>Unit</th><th>Payer</th><th>Cheque no</th><th>Cheque date</th><th>Cleared</th><th>Amount</th><th>For</th></tr>${M.map((c,i)=>`<tr><td><input type="checkbox" data-mi="${i}" style="width:auto"></td><td>${esc(c.unit)}</td><td>${esc(c.payer||'')}</td><td>${esc(c.chqNo)}</td><td>${fd(c.chqDate)}</td><td>${fd(c.clearedDate||c.depositDate)}</td><td>${fa(c.amount)}</td><td><select data-mf="${i}" style="width:auto">${CHQ_FOR.slice(0,3).map(x=>`<option ${x===(chqFor(c)||'Rental Payment')?'selected':''}>${x}</option>`).join('')}</select></td></tr>`).join('')}</table></div>
+ <div style="margin-top:10px"><button class="btn pri" id="rmAdd">Add ticked to Rent Collection</button></div>`:'<p><b>Nothing missing</b> — every rent cheque of this building deposited / cleared from 21 Nov 2026 is in Rent Collection.</p>'}`,null);
+ const b=$('#rmAdd',o);if(b)b.onclick=()=>{let n=0;o.querySelectorAll('[data-mi]:checked').forEach(x=>{const i=+x.dataset.mi,c=M[i],pf=o.querySelector('[data-mf="'+i+'"]').value;c.payFor=pf;c.rcLater=1;c.rcPosted=0;n++});
+  if(!n){toast('Tick the cheques to add');return}save();o.remove();render();toast(n+' cheque'+(n>1?'s':'')+' added to Rent Collection on the cleared date')}}
+/* 24 Nov 2026: RTGF01 cheque cleared today was added in the Cheques section, so it never reached Rent Collection — post it now */
+(function rtgf01Post(){S.settings=S.settings||{};if(S.settings._rtgf01rc)return;const p=(S.properties||[]).find(x=>String(x.short||'').trim()==='891');if(!p)return;
+ const M=rcMissing(p.id).filter(c=>String(c.unit).toUpperCase()==='RTGF01'&&c.status==='Cleared'&&(c.clearedDate||'')>='2026-11-24');if(!M.length)return;
+ M.forEach(c=>{if(!c.payFor)c.payFor=chqFor(c)||'Rental Payment';c.rcLater=1;c.rcPosted=0});chqRcSync();S.settings._rtgf01rc=1;save()})();
 function chqRcSync(){const E=S.stmt&&S.stmt.entries;if(!E)return;(S.cheques||[]).forEach(c=>{if(!c.rcLater)return;
- const desc=String(c.note||''),isDep=/security deposit/i.test(desc),isRent=/^rent(al)?\b|parking/i.test(desc);if(!isDep&&!isRent)return;
+ const desc=String(c.payFor&&c.payFor!=='Other'?c.payFor:(c.note||'')),isDep=/security deposit/i.test(desc),isRent=/^rent(al)?\b|parking/i.test(desc);if(!isDep&&!isRent)return;
  const ap=/Deposited|Cleared/.test(c.status||''),dt=c.clearedDate||c.depositDate||'',mine=E.filter(e=>e.chqId===c.id);
  if(!ap||!dt){if(mine.length){S.stmt.entries=S.stmt.entries.filter(e=>e.chqId!==c.id)}c.rcPosted=0;return}
  if(mine.length){mine.forEach(e=>{if(e.date!==dt)e.date=dt});return}
