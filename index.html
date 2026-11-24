@@ -4005,7 +4005,7 @@ load();render();backfillPhotos();aiInit();
 (function repairLeaseHistory(){let ch=0;(S.tenants||[]).forEach(t=>{if(!tenantCurrent(t)||!(t.leases||[]).length)return;const u=units(t.propId).find(x=>String(x.unit)===String(t.unit));if(!u||!u.start)return;
   if(u.end&&u.end<u.start){const c=t.leases.find(l=>l.end===u.end&&l.start&&l.start<u.end);if(c){u.start=c.start;if(c.tawthiq!=null)u.tawthiq=c.tawthiq;ch=1}}
   const keep=t.leases.filter(l=>!(l.start&&l.start>=u.start));if(keep.length!==t.leases.length){t.leases=keep;ch=1}});if(ch)save()})();
-(function themeInit(){const H=document.documentElement;S.settings=S.settings||{};if(!S.settings.futInit){S.settings.futInit=1;S.settings.theme='future';save()}if(S.settings.theme!=='future')S.settings.theme='modern';H.dataset.theme=S.settings.theme;
+(function themeInit(){const H=document.documentElement;S.settings=S.settings||{};if(!S.settings.lookInit2){S.settings.lookInit2=1;S.settings.theme='modern';save()}if(S.settings.theme!=='future')S.settings.theme='modern';H.dataset.theme=S.settings.theme;
  const fs=document.getElementById('futSw');if(fs){fs.checked=S.settings.theme==='future';fs.onchange=()=>{S.settings.theme=fs.checked?'future':'modern';H.dataset.theme=S.settings.theme;save()}}
  const md=v=>{if(v)H.dataset.mode='dark';else delete H.dataset.mode};md(!!S.settings.dark);
  const sw=document.getElementById('modeSw');if(sw){sw.checked=!!S.settings.dark;sw.onchange=()=>{S.settings.dark=sw.checked;save();md(sw.checked)}}})();
