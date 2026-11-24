@@ -3624,8 +3624,13 @@ async function waSave(k){const c=WA.get(),via=document.querySelector('input[name
  if(on&&!c.on)n.seen=new Date().toISOString(); // start from now, no flood of old changes
  WA.set(n);try{if(k===1){await waSend('NAS Property Management: test message ✔',n);toast('Test sent')}else if(k===2){await waSend(waDaily(),n);WA.set({...WA.get(),lastDay:todayISO()});toast('Summary sent')}else toast('Alerts saved')}catch(e){toast(e.message)}
  const s=$('#waSt');if(s&&WA.last)s.textContent='Last sent '+WA.last.toLocaleTimeString()}
+function lookCard(){const fut=document.documentElement.dataset.theme==='future',dk=!!(S.settings&&S.settings.dark);return `<div class="card"><b>Look (this computer)</b><div style="margin-top:8px;display:flex;gap:24px;flex-wrap:wrap">
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${fut?'checked':''} style="width:auto" onchange="lookSet('fut',this.checked)"> Futurist</label>
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${dk?'checked':''} style="width:auto" onchange="lookSet('dark',this.checked)"> Dark</label></div></div>`}
+function lookSet(k,v){const H=document.documentElement;if(k==='fut'){S.settings.theme=v?'future':'modern';H.dataset.theme=S.settings.theme;const x=document.getElementById('futSw');if(x)x.checked=v}
+ else{S.settings.dark=v;if(v)H.dataset.mode='dark';else delete H.dataset.mode;const x=document.getElementById('modeSw');if(x)x.checked=v}save()}
 function vSet(){
-  $('#main').innerHTML=topbar('Settings')+spCard()+xlCard()+clCard()+waCard()+`
+  $('#main').innerHTML=topbar('Settings')+lookCard()+spCard()+xlCard()+clCard()+waCard()+`
   <div class="card"><b>Receipt footer</b><div style="margin-top:8px"><label>“Printing by” text on receipts</label><input id="pb" value="${esc(S.settings.printBy)}"></div></div>
   <div class="card"><b>Management fee (Rent Collection)</b><div class="grid g3" style="margin-top:10px"><div><label>Management fee %</label><input id="fp" type="number" step="0.01" value="${esc(S.settings.feePct)}"></div><div><label>VAT %</label><input id="vp" type="number" step="0.01" value="${esc(S.settings.vatPct)}"></div>
    <div><label>VAT treatment</label><select id="vm"><option value="none" ${S.settings.vatMode==='none'?'selected':''}>No VAT on this fee</option><option value="incl" ${S.settings.vatMode==='incl'?'selected':''}>Fee already includes VAT</option><option value="excl" ${S.settings.vatMode==='excl'?'selected':''}>VAT added on top of fee</option></select></div></div>
