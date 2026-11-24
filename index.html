@@ -1514,7 +1514,7 @@ function rNew(){
     <div><label>Cheque number</label><input data-i="${i}" data-f="chq" value="${esc(l.chq)}" placeholder="-" ${l.mode==='Cheque'?'':'disabled'}></div>
     <div><label>Payment date</label><input type="date" data-i="${i}" data-f="pdate" value="${l.pdate}"></div>
     ${l.mode==='Cheque'?`<div style="grid-column:1/-1"><label>Bank</label><input data-i="${i}" data-f="bank" list="uaeBanks" value="${esc(l.bank||'')}" placeholder="Pick or type the bank"></div>`:''}</div>
-    ${d.lines.length>1?`<button class="btn sm danger" data-rm="${i}" style="margin-top:6px">Remove line</button>`:''}</div>`).join('')};
+    <div style="margin-top:6px;display:flex;gap:6px"><button class="btn sm" data-cp="${i}" type="button">Copy row</button>${d.lines.length>1?`<button class="btn sm danger" data-rm="${i}" type="button">Remove line</button>`:''}</div></div>`).join('')};
   /* fee lines are picked by you (no automatic Tenancy Contract / Cheque Handling fee) */
   const isFee=l=>/^cheque handling fee/i.test(String(l.desc||'').trim()),isTc=l=>/^tenancy contract (renewal )?fee/i.test(String(l.desc||'').trim());
   const chqFee=()=>{};
@@ -1529,7 +1529,10 @@ function rNew(){
   $('#ln').onchange=e=>{const f=e.target.dataset.f;if(f==='descSel'){const l=d.lines[e.target.dataset.i],v=e.target.value;l.desc=v==='Other'?'':v;
     if(v.startsWith('Security Deposit')&&!l.amount){const u=units().find(x=>String(x.unit)===d.unit.trim());if(u&&+u.deposit)l.amount=+u.deposit}chqFee();lines();prev();return}
     if(f==='mode'){const l=d.lines[e.target.dataset.i];if(isFee(l)||isTc(l))l.modeManual=true;if(l.mode!=='Cheque'){l.chq='';l.bank=''}chqFee();lines();prev()}};
-  $('#ln').onclick=e=>{const b=e.target.closest('[data-rm]');if(b){const rm=d.lines.splice(+b.dataset.rm,1)[0];if(!isFee(rm)&&!isTc(rm))chqFee();lines();prev()}};
+  $('#ln').onclick=e=>{const cp=e.target.closest('[data-cp]');if(cp){const k=+cp.dataset.cp,src=d.lines[k],n={...src};delete n.auto;
+     if(n.mode==='Cheque'&&/^\d+$/.test(String(n.chq||''))){const x=String(n.chq);n.chq=String(+x+1).padStart(x.length,'0')} // next cheque number
+     d.lines.splice(k+1,0,n);lines();prev();return}
+    const b=e.target.closest('[data-rm]');if(b){const rm=d.lines.splice(+b.dataset.rm,1)[0];if(!isFee(rm)&&!isTc(rm))chqFee();lines();prev()}};
   $('#al').onclick=()=>{d.lines.push({desc:'Rent',mode:'Cash',chq:'',bank:'',pdate:d.date,amount:''});lines();prev()};
   $('#stm').onchange=e=>{d.stamp=e.target.checked;prev()};
   const invPanel=()=>{const box=$('#rinvp');if(!box)return;const i=S.invoices.find(x=>x.id===d.invId);if(!i){box.innerHTML='';return}
@@ -3858,7 +3861,10 @@ function iNew(){
     const rent=+u.tawthiq||+u.actual||0,R=d.lines.find(l=>l.k==='rent'),D=d.lines.find(l=>l.k==='dep');if(R)R.amount=rent||'';if(D)D.amount=+u.deposit||'';
     $('#ib').value=d.billTo;$('#iut').value=d.unitType;$('#ics').value=d.cStart;$('#ice').value=d.cEnd;invCalc(d);lines();pays()}prev()};
   $('#ln').oninput=e=>{const t=e.target,k=t.dataset.i;if(k==null)return;const l=d.lines[k];l[t.dataset.f]=t.value;if(t.dataset.f==='amount'){if(l.k!=='rent')l.auto=0;invCalc(d);sync()}prev()};
-  $('#ln').onclick=e=>{const b=e.target.closest('[data-rm]');if(b){d.lines.splice(+b.dataset.rm,1);lines();prev()}};
+  $('#ln').onclick=e=>{const cp=e.target.closest('[data-cp]');if(cp){const k=+cp.dataset.cp,src=d.lines[k],n={...src};delete n.auto;
+     if(n.mode==='Cheque'&&/^\d+$/.test(String(n.chq||''))){const x=String(n.chq);n.chq=String(+x+1).padStart(x.length,'0')} // next cheque number
+     d.lines.splice(k+1,0,n);lines();prev();return}
+    const b=e.target.closest('[data-rm]');if(b){d.lines.splice(+b.dataset.rm,1);lines();prev()}};
   $('#al').onclick=()=>{d.lines.push({desc:'',mode:'-',amount:''});lines();prev()};
   $('#py').oninput=e=>{const t=e.target,k=t.dataset.j;if(k==null||t.tagName==='SELECT')return;d.pays[k][t.dataset.f]=t.value;if(t.dataset.f==='amount')d.paysAuto=false;prev()};
   $('#py').onchange=e=>{const t=e.target,k=t.dataset.j;if(k==null)return;if(t.dataset.f==='mode'){d.pays[k].mode=t.value;if(t.value!=='Cheque')d.pays[k].chq='';invCalc(d);pays();lines();prev()}};
