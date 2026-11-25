@@ -1872,13 +1872,23 @@ function chqForm(c){
    ${f('chqDate','Cheque date','date')}${f('receivedDate','Received date','date')}${f('receiptNo','Receipt no')}${f('depositDate','Deposit date','date')}${f('clearedDate','Cleared date','date')}
    <div><label>Status</label><select data-k="status">${CHQ_STATUS.map(s=>`<option ${s===n.status?'selected':''}>${s}</option>`).join('')}</select></div>${f('bouncePaid','Bounced paid date','date')}<div><label>Payment method</label><select data-k="method">${['Cheque','Bank Transfer','Cash'].map(m=>`<option ${m===(n.method||'Cheque')?'selected':''}>${m}</option>`).join('')}</select></div>
    <div style="grid-column:span 3">${f('notice','NOTICE (PDC report)')}</div><div style="grid-column:span 3">${f('note','Note')}</div></div>
+   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><b>Attachments</b> <span class="hint">cheque copy (photo or PDF) — uploads to SharePoint › tenant › Cheques &amp; receipts</span>
+    <div id="cfFiles" style="margin:6px 0"></div><input type="file" id="cfAdd" multiple accept="image/*,application/pdf"></div>
    ${c?'<div style="margin-top:10px"><button class="btn sm danger" id="cdel">Delete cheque</button></div>':''}`,ov=>{
     ov.querySelectorAll('[data-k]').forEach(el=>{n[el.dataset.k]=el.type==='number'?(el.value===''?'':+el.value):el.value.trim()});
     if(!n.chqNo){toast('Cheque no is required');return false}
     if(!n.payFor&&!c){toast('Choose what this cheque is for (Rent, Security deposit, Parking or Other)');return false}
     if(n.payFor&&n.payFor!=='Other'&&(!c||(!c.rcLater&&!/Deposited|Cleared/.test(c.status||'')&&chqFor(c)!==n.payFor))){n.rcLater=1;n.rcPosted=0} // goes to Rent Collection when cleared
     if(n.payFor==='Other'&&c&&c.rcLater&&!c.rcPosted)n.rcLater=0;
-    const wasC=c&&c.status==='Cleared';if(n.status==='Cleared'&&!n.clearedDate)n.clearedDate=todayISO();if(c)Object.assign(c,n);else S.cheques.push(n);save();render();if(n.status==='Cleared'&&!wasC)setTimeout(()=>askSlip(c||n),50)});
+    n.files=FL.slice();const newF=FL.some(id=>!(c&&(c.files||[]).includes(id)));
+    const wasC=c&&c.status==='Cleared';if(n.status==='Cleared'&&!n.clearedDate)n.clearedDate=todayISO();if(c)Object.assign(c,n);else S.cheques.push(n);save();render();if(newF)try{if(spOn())setTimeout(()=>spSync(true,true,!!spSt().auto),400)}catch(_){}if(n.status==='Cleared'&&!wasC)setTimeout(()=>askSlip(c||n),50)});
+  const FL=[...(n.files||[])];
+  const drawF=async()=>{const box=$('#cfFiles');if(!box)return;const R=[];for(const id of FL){let nm='file';try{const r=await IDB.get(id);if(r)nm=r.name||nm}catch(_){}R.push(`<div style="display:flex;gap:10px;align-items:center;margin:3px 0">📎 <a href="#" data-fo="${id}">${esc(nm)}</a> <a href="#" data-fx="${id}" style="color:var(--red)">remove</a></div>`)}
+   (n.depFiles||[]).forEach(id=>R.push(`<div style="margin:3px 0">🧾 <a href="#" data-fo="${id}">Deposit slip</a></div>`));box.innerHTML=R.join('')||'<span class="hint">No attachment yet</span>'};drawF();
+  $('#cfFiles').onclick=e=>{const a=e.target.closest('a');if(!a)return;e.preventDefault();if(a.dataset.fo)openFile(a.dataset.fo,false);else if(a.dataset.fx&&confirm('Remove this attachment from the cheque?')){FL.splice(FL.indexOf(a.dataset.fx),1);drawF()}};
+  $('#cfAdd').onchange=async e=>{for(const fl of e.target.files){if(fl.size>8*1048576){toast(fl.name+' is larger than 8 MB — skipped');continue}const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(fl)});
+    const no=(document.querySelector('.ov [data-k="chqNo"]')||{}).value||'',un=(document.querySelector('.ov [data-k="unit"]')||{}).value||'',id=uid();
+    try{await IDB.put({id,docFile:true,name:spClean('Cheque '+no+(un?' - Unit '+un:'')+' - '+fl.name),type:fl.type,data});FL.push(id)}catch(_){toast('Could not store '+fl.name)}}e.target.value='';drawF();toast('Attached — click Save to keep it')};
   {const ui=$('#cfU');if(ui)ui.oninput=()=>{const u=(units(n.propId||S.cur)||[]).find(x=>String(x.unit)===ui.value.trim());const pi=document.querySelector('.ov [data-k="payer"]');if(u&&u.tenant&&pi&&!pi.value.trim())pi.value=u.tenant}}
   const d=$('#cdel');if(d)d.onclick=()=>{if(confirm('Delete this cheque?')){S.cheques=S.cheques.filter(x=>x.id!==c.id);save();document.querySelector('.ov').remove();render()}};
   const rb=$('#cRead');if(rb)rb.onclick=()=>{const ov=rb.closest('.ov');if(ov)ov.remove();chqRead()};const mb=$('#cMulti');if(mb)mb.onclick=()=>{const ov=mb.closest('.ov');if(ov)ov.remove();chqRead(true)};
