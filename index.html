@@ -3196,7 +3196,7 @@ function vExp(){
  const draw=()=>{const E=expList(),tot=E.reduce((a,e)=>a+expTotal(e),0),m=E.filter(e=>isMaint(e.category)).reduce((a,e)=>a+expTotal(e),0),pend=E.filter(e=>e.status==='Pending').reduce((a,e)=>a+expTotal(e),0);
   $('#eSum').innerHTML=`<div class="stat"><b>${fa2(tot)}</b><span>Total</span></div><div class="stat"><b>${fa2(m)}</b><span>Maintenance</span></div><div class="stat"><b>${fa2(tot-m)}</b><span>Other expenses</span></div><div class="stat"><b>${fa2(pend)}</b><span>Pending payment</span></div>`;
   $('#et').innerHTML='<tr><th>Date</th><th>Unit</th><th>Category</th><th>Description</th><th>Vendor</th><th>Invoice no</th><th class="r">Amount</th><th class="r">VAT</th><th class="r">Total</th><th>Paid by</th><th>Method</th><th>Status</th><th>Files</th><th></th></tr>'+
-   E.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.unit||'Building')}</td><td>${esc(e.category)}</td><td title="${esc(e.desc)}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc)}</td><td>${esc(e.vendor)}</td><td>${esc(e.invNo)}</td><td class="r">${fa2(e.amount)}</td><td class="r">${+e.vat?fa2(e.vat):''}</td><td class="r"><b>${+e.credit?'+'+fa2(e.credit)+' <span class="tag grn">credit</span>':fa2(expTotal(e))}</b></td><td>${esc(e.paidBy)}${e.deductRC?' <span class="tag amb">in Rent Coll.</span>':''}</td><td>${esc(e.method)}</td><td><span class="tag ${e.status==='Paid'?'grn':'amb'}">${esc(e.status)}</span></td><td><button class="btn sm" data-ef="${e.id}">📎 ${(e.files||[]).length||'Add'}</button></td><td><button class="btn sm" data-ee="${e.id}">Edit</button> <button class="btn sm danger" data-ed="${e.id}">Delete</button></td></tr>`).join('')||'<tr><td colspan=14 class="hint">No expenses yet</td></tr>'};
+   E.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.unit||'Building')}</td><td>${esc(e.category)}</td><td title="${esc(e.desc||e.xlDesc||'')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc||e.xlDesc||'')}</td><td>${esc(e.vendor)}</td><td>${esc(e.invNo)}</td><td class="r">${fa2(e.amount)}</td><td class="r">${+e.vat?fa2(e.vat):''}</td><td class="r"><b>${+e.credit?'+'+fa2(e.credit)+' <span class="tag grn">credit</span>':fa2(expTotal(e))}</b></td><td>${esc(e.paidBy)}${e.deductRC?' <span class="tag amb">in Rent Coll.</span>':''}</td><td>${esc(e.method)}</td><td><span class="tag ${e.status==='Paid'?'grn':'amb'}">${esc(e.status)}</span></td><td><button class="btn sm" data-ef="${e.id}">📎 ${(e.files||[]).length||'Add'}</button></td><td><button class="btn sm" data-ee="${e.id}">Edit</button> <button class="btn sm danger" data-ed="${e.id}">Delete</button></td></tr>`).join('')||'<tr><td colspan=14 class="hint">No expenses yet</td></tr>'};
  draw();
  $('#eqi').oninput=e=>{eq=e.target.value;draw()};$('#ecs').onchange=e=>{ec=e.target.value;draw()};$('#efi').onchange=e=>{ef=e.target.value;draw()};$('#eti').onchange=e=>{et=e.target.value;draw()};
  $('#eAdd').onclick=()=>expForm(null);$('#eExp').onclick=()=>exportExp(expList());$('#eCopy').onclick=()=>copyExp(expList());
@@ -3220,6 +3220,8 @@ function expForm(e0){const U=units(),n=e0?{...e0,files:[...(e0.files||[])]}:{id:
   <label style="display:flex;gap:6px;align-items:center;margin-top:12px;text-transform:none;letter-spacing:0;font-size:13px"><input type="checkbox" id="erc" ${n.deductRC?'checked':''} style="width:auto"> Deduct from the landlord in Rent Collection (adds a debit line)</label>
   <div style="margin-top:10px"><label>Attachments (invoice, quotation, photos)</label><input type="file" id="efl" multiple accept=".pdf,.doc,.docx,image/*"><div id="efll" class="hint"></div></div>`,ov=>{
   ov.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;n[k]=el.type==='number'?(el.value===''?'':+el.value):el.value.trim()});n.deductRC=$('#erc',ov).checked;
+  if(!n.desc&&n.xlDesc)n.desc=n.xlDesc;
+  if(!n.desc){toast('Enter the description');return false}
   if(!n.date||!(+n.amount>0)){toast('Enter the date and amount');return false}
   nf.filter(f=>n.files.some(x=>x.id===f.id)).forEach(f=>IDB.put(f).catch(()=>toast('Could not store '+f.name)));
   if(e0)Object.assign(e0,n);else S.expenses.push(n);expSync(e0||n);save();render();toast('Saved')});
@@ -4448,6 +4450,16 @@ const D5257={"U":[],"C":[],"RC":[],"MT":[]};
  D5257.MT.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no){const x=ex.find(e=>String(e.mrNo||'')===no||e.invNo==='Receipt '+no);if(x){x.xlDesc=desc;x.xlNotes=notes;x.mrNo=no;return}}
   S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl5257'})});
  S.settings.d5257done=1;save();setTimeout(()=>toast('5257 loaded: '+U.length+' units, '+D5257.C.length+' cheques, '+D5257.RC.length+' rent collection lines, '+D5257.MT.length+' maintenance entries'),3000)})();
+const MX5257B=[];
+(function mx5257b(){S.settings=S.settings||{};if(S.settings.mx5257b||!MX5257B.length)return;const pid=bldId('5257');if(!pid||!S.settings.d5257done){return}
+ S.expenses=S.expenses||[];const ex=S.expenses.filter(e=>e.propId===pid),T=v=>String(v||'').replace(/\s+/g,' ').trim(),used=new Set();let n=0,m=0;
+ MX5257B.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{let x=null;
+  if(no)x=ex.find(e=>!used.has(e.id)&&(String(e.mrNo||'')===no||T(e.invNo).replace(/^Receipt\s*/i,'')===no||new RegExp('\\('+no+'\\)').test(e.xlNotes||'')));
+  if(!x)x=ex.find(e=>!used.has(e.id)&&T(e.xlDesc||e.desc)===T(desc)&&T(e.xlNotes)===T(notes)&&Math.abs((+e.amount||0)+(+e.vat||0)-deb)<.01);
+  if(x){used.add(x.id);if(x.date!==date||T(x.xlNotes)!==T(notes)){x.date=date;x.xlDesc=desc;x.xlNotes=notes;if(no)x.mrNo=no;m++}return}
+  S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop\s*-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl5257'});n++});
+ S.settings.mx5257b=1;save();if(n||m)setTimeout(()=>toast('5257 maintenance updated to Nov: '+n+' added, '+m+' corrected'),4000)})();
+
 (function addBuilding346(){if(S.properties.some(p=>p.id==='P-346'||String(p.short||'').trim()==='346'))return;S.properties.push({id:'P-346',no:'P-346',short:'346',landlord:'HEIRS OF SAIF RASHED AL NUAIMI',resUnits:48,comUnits:3,location:'Al Sharjah - Abu Shagara',plot:'',nextReceipt:1000047,feePct:5.25,image:''});S.units['P-346']=S.units['P-346']||[];save()})();
 const D346={"U": [], "C": [], "RC": [], "MT": []};
 (function load346All(){S.settings=S.settings||{};if(S.settings.d346done||!D346.U.length)return;const pid=bldId('346'),p=S.properties.find(x=>x.id===pid);if(!p)return;
