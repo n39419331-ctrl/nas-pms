@@ -1796,13 +1796,13 @@ function vChq(){
        else if(k===14)r+=td(fd(x)+(d!=null&&d<=7?' <span class="tag '+(d<0?'red':'amb')+'">'+(d<0?'overdue':d+'d')+'</span>':''),'center',1,k);
        else if(k===19)r+=td(esc(x||''),'left',1,k);
        else r+=td(fmt(k,x),k===7?'left':'center',rr,k)});
-      r+=td(c.virtual?'':`${(c.files||[]).length?`<button class="pbtn" data-cf="${c.id}">Copy</button> `:''}${(c.depFiles||[]).length?`<button class="pbtn" data-ds="${c.id}">Slip</button> `:''}<button class="pbtn" data-e="${c.id}">Edit</button>`,'left');return r+'</tr>'}).join('')).join('')||'<tr><td colspan=24 class="hint">No cheques</td></tr>';
+      r+=td(c.virtual?'':`<button class="pbtn" data-cf="${c.id}" title="View / add cheque copies">📎 ${(c.files||[]).length||'Add'}</button> ${(c.depFiles||[]).length?`<button class="pbtn" data-ds="${c.id}">Slip</button> `:''}<button class="pbtn" data-e="${c.id}">Edit</button>`,'left');return r+'</tr>'}).join('')).join('')||'<tr><td colspan=24 class="hint">No cheques</td></tr>';
     $('#ct').innerHTML=h};
   draw();
   $('#cqi').oninput=e=>{cq=e.target.value;draw()};$('#cfs').onchange=e=>{cs=e.target.value;draw()};
   $('#ct').onchange=e=>{const id=e.target.dataset.s;if(!id)return;const c=S.cheques.find(x=>x.id===id);c.status=e.target.value;
     if(c.status==='Deposited'&&!c.depositDate)c.depositDate=todayISO();if(c.status==='Cleared'){if(!c.depositDate)c.depositDate=todayISO();if(!c.clearedDate)c.clearedDate=todayISO()}save();draw();if(c.status==='Cleared')askSlip(c)};
-  $('#ct').onclick=e=>{const ds=e.target.closest('[data-ds]');if(ds){const c=S.cheques.find(x=>x.id===ds.dataset.ds);(c.depFiles||[]).forEach(id=>openFile(id,false));return}const f=e.target.closest('[data-cf]');if(f){const c=S.cheques.find(x=>x.id===f.dataset.cf);(c.files||[]).forEach(id=>openFile(id,false));return}const b=e.target.closest('[data-e]');if(b)chqForm(S.cheques.find(x=>x.id===b.dataset.e))};
+  $('#ct').onclick=e=>{const ds=e.target.closest('[data-ds]');if(ds){const c=S.cheques.find(x=>x.id===ds.dataset.ds);(c.depFiles||[]).forEach(id=>openFile(id,false));return}const f=e.target.closest('[data-cf]');if(f){chqFilesDlg(S.cheques.find(x=>x.id===f.dataset.cf));return}const b=e.target.closest('[data-e]');if(b)chqForm(S.cheques.find(x=>x.id===b.dataset.e))};
   $('#cAdd').onclick=()=>chqForm(null);$('#cDep').onclick=depositSlip;$('#cScan').onclick=chqScanAttach;$('#cPrn').onclick=printChq;
   $('#cExp').onclick=()=>exportPDC(chqFiltered());
   $('#cCopy').onclick=()=>copyPDC(chqFiltered());$('#cWa').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(chqWaText(chqFiltered())),'_blank','noopener');
@@ -1865,6 +1865,16 @@ function askSlip(c){if(!c)return;const o=modal(`<h3>Cheque ${esc(c.chqNo)} clear
   for(const f of F){if(f.size>8*1048576){toast(f.name+' is larger than 8 MB — skipped');continue}const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(f)});
    const rec={id:uid(),docFile:true,name:f.name,type:f.type,data};try{await IDB.put(rec);ids.push(rec.id)}catch(_){toast('Could not store '+f.name+' in this browser')}}
   dates();c.depFiles=(c.depFiles||[]).concat(ids);save();o.remove();render();toast('Deposit slip attached to cheque '+c.chqNo)}}
+/* cheque attachments from the list: view, add, remove */
+function chqFilesDlg(c){if(!c)return;const o=modal(`<h3>Cheque ${esc(c.chqNo)} — attachments</h3><p class="hint">Unit ${esc(c.unit||'')} · ${esc(c.payer||'')} · ${fd(c.chqDate)} · AED ${fa(c.amount)}</p><div id="cxL"></div>
+ <label style="margin-top:10px;display:block">Add cheque copy (photo or PDF)</label><input type="file" id="cxIn" multiple accept="image/*,application/pdf">`,null);o.querySelector('[data-x]').textContent='Close';
+ const L=async()=>{const R=[];for(const id of (c.files||[])){let r=null;try{r=await IDB.get(id)}catch(_){}const nm=(r&&r.name)||'file',img=r&&/^data:image/.test(r.data||'');
+   R.push(`<div style="display:flex;gap:12px;align-items:center;margin:8px 0">${img?`<img src="${r.data}" data-op="${id}" style="width:260px;border:1px solid #ddd;border-radius:6px;cursor:zoom-in">`:'📄'}<div><a href="#" data-op="${id}">${esc(nm)}</a><br><a href="#" data-rm="${id}" style="color:var(--red);font-size:12px">remove</a></div></div>`)}
+  (c.depFiles||[]).forEach(id=>R.push(`<div style="margin:6px 0">🧾 <a href="#" data-op="${id}">Deposit slip</a></div>`));$('#cxL',o).innerHTML=R.join('')||'<span class="hint">No attachment yet</span>'};L();
+ $('#cxL',o).onclick=e=>{const a=e.target.closest('[data-op],[data-rm]');if(!a)return;e.preventDefault();if(a.dataset.op)openFile(a.dataset.op,false);else if(confirm('Remove this attachment from the cheque?')){c.files=(c.files||[]).filter(x=>x!==a.dataset.rm);save();L();render()}};
+ $('#cxIn',o).onchange=async e=>{let n=0;for(const fl of e.target.files){if(fl.size>8*1048576){toast(fl.name+' is larger than 8 MB — skipped');continue}const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(fl)});const id=uid();
+   try{await IDB.put({id,docFile:true,name:spClean(String(fl.name).includes(String(c.chqNo))?fl.name:'Cheque '+c.chqNo+' - Unit '+c.unit+' - '+fl.name),type:fl.type,data});c.files=(c.files||[]).concat(id);n++}catch(_){toast('Could not store '+fl.name)}}
+  e.target.value='';if(n){save();L();render();toast(n+' file'+(n>1?'s':'')+' attached');try{if(spOn())setTimeout(()=>spSync(true,true,!!spSt().auto),400)}catch(_){}}}}
 function chqForm(c){
   const n=c?{...c}:{id:uid(),propId:S.cur,chqNo:'',bank:'',payer:'',unit:'',amount:'',chqDate:'',receivedDate:todayISO(),receiptNo:'',status:'Received',depositDate:'',clearedDate:'',note:''};
   const f=(k,l,t='text')=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(n[k])}"></div>`;
