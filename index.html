@@ -2107,7 +2107,7 @@ function holdForm(pid,unitNo){const u=units(pid).find(x=>String(x.unit)===String
 function autoVacate(){const t0=todayISO();let ch=false;
  S.properties.forEach(p=>(S.units[p.id]||[]).forEach(u=>{
   // 146: an expired lease stays Occupied (tenant often still in, contract follow-up) — only marked Vacant by hand, like the office property list
-  if(bldNo(p.id)==='146'){if(u.autoVac){if(u.status==='Vacant'&&(u.tenant||'').trim())u.status='Occupied';delete u.autoVac;ch=true}return}
+  if(['146','346'].includes(bldNo(p.id))){if(u.autoVac){if(u.status==='Vacant'&&(u.tenant||'').trim())u.status='Occupied';delete u.autoVac;ch=true}return}
   if(u.end&&u.end<t0&&u.status!=='Vacant'&&(u.tenant||'').trim()&&!pendRen(p.id,u.unit)){u.status='Vacant';u.autoVac=1;ch=true}
   else if(u.autoVac&&u.end&&u.end>=t0){if(u.status==='Vacant')u.status='Occupied';delete u.autoVac;ch=true}}));
  if(ch)save();return ch}
@@ -4436,6 +4436,25 @@ const D5257={"U":[],"C":[],"RC":[],"MT":[]};
  D5257.MT.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no){const x=ex.find(e=>String(e.mrNo||'')===no||e.invNo==='Receipt '+no);if(x){x.xlDesc=desc;x.xlNotes=notes;x.mrNo=no;return}}
   S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl5257'})});
  S.settings.d5257done=1;save();setTimeout(()=>toast('5257 loaded: '+U.length+' units, '+D5257.C.length+' cheques, '+D5257.RC.length+' rent collection lines, '+D5257.MT.length+' maintenance entries'),3000)})();
+(function addBuilding346(){if(S.properties.some(p=>p.id==='P-346'||String(p.short||'').trim()==='346'))return;S.properties.push({id:'P-346',no:'P-346',short:'346',landlord:'HEIRS OF SAIF RASHED AL NUAIMI',resUnits:48,comUnits:3,location:'Al Sharjah - Abu Shagara',plot:'',nextReceipt:1000047,feePct:5.25,image:''});S.units['P-346']=S.units['P-346']||[];save()})();
+const D346={"U": [], "C": [], "RC": [], "MT": []};
+(function load346All(){S.settings=S.settings||{};if(S.settings.d346done||!D346.U.length)return;const pid=bldId('346'),p=S.properties.find(x=>x.id===pid);if(!p)return;
+ const U=S.units[pid]=S.units[pid]||[],K=['unit','type','sqm','lease','tenant','start','end','tawthiq','note','phone','deposit','status'];
+ D346.U.forEach(a=>{const o={actual:'',nextRent:'',aver:'',parking:''};K.forEach((k,i)=>o[k]=a[i]);const ex=U.find(x=>String(x.unit)===o.unit);if(ex)Object.assign(ex,o);else U.push(o)});
+ const ord=new Map(D346.U.map((a,i)=>[a[0],i]));U.sort((a,b)=>(ord.has(String(a.unit))?ord.get(String(a.unit)):9999)-(ord.has(String(b.unit))?ord.get(String(b.unit)):9999));
+ const kk=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();S.tenants=S.tenants||[];
+ U.forEach(u=>{if(!u.tenant)return;let t=S.tenants.find(x=>x.propId===pid&&String(x.unit)===String(u.unit)&&kk(x.name)===kk(u.tenant));
+  if(!t){t={id:uid(),propId:pid,unit:String(u.unit),name:u.tenant,eid:'',nationality:'',dob:'',gender:'',eidExpiry:'',mobile:'',email:'',passport:'',notes:'',files:[],docs:[]};S.tenants.push(t)}
+  if(!t.mobile&&u.phone)t.mobile=waNum(String(u.phone))});
+ S.cheques=S.cheques||[];D346.C.forEach(([unit,no,amt,date,bank,st,ten,cs,ce,camt,bounce,bpaid,notice])=>{if(S.cheques.some(c=>c.propId===pid&&String(c.unit)===unit&&String(c.chqNo)===String(no)))return;
+  S.cheques.push({id:uid(),propId:pid,chqNo:no,bank,payer:ten,unit,amount:amt,chqDate:date,receivedDate:'',receiptNo:'',status:st,depositDate:'',clearedDate:'',note:'',notice:notice||'',payFor:'Rental Payment',files:[],...(cs?{cStart:cs,cEnd:ce,cAmt:camt}:{}),...(bounce?{bounced:bounce,bouncePaid:bpaid}:{}),src:'pcd346'})});
+ S.stmt=S.stmt||{entries:[]};let g='';D346.RC.forEach(([date,desc,ten,unit,meth,chq,deb,cr])=>{if(cr>0){g=uid();if(S.stmt.entries.some(e=>e.propId===pid&&e.date===date&&String(e.unit)===unit&&+e.credit===+cr&&e.desc===desc))return;
+   S.stmt.entries.push({propId:pid,grp:g,date,tenant:ten,unit,method:meth,chq,receiptNo:'',id:uid(),kind:'rent',desc,debit:0,credit:cr,src:'rc346'})}
+  else if(deb>0&&g){const r=S.stmt.entries.find(e=>e.grp===g&&e.kind==='rent');if(!r||S.stmt.entries.some(e=>e.grp===g&&e.kind==='fee'))return;S.stmt.entries.push({...r,id:uid(),kind:'fee',desc,debit:Math.round(deb*100)/100,credit:0})}});
+ S.expenses=S.expenses||[];D346.MT.forEach(([date,desc,notes,deb,cr,unit,no,cat])=>{if(no&&S.expenses.some(e=>e.propId===pid&&String(e.mrNo||'')===no))return;
+  S.expenses.push({id:uid(),propId:pid,date,unit,category:cat,desc:desc.replace(/^Prop-\s*/,''),vendor:notes,invNo:'',amount:deb||0,vat:0,credit:cr||0,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],xlDesc:desc,xlNotes:notes,mrNo:no||'',src:'xl346'})});
+ S.settings.d346done=1;save();setTimeout(()=>toast('346 loaded: '+U.length+' units, '+D346.C.length+' cheques, '+D346.RC.length+' rent collection lines, '+D346.MT.length+' maintenance entries'),3500)})();
+
 const R5257OLD=[];
 (function oldReceipts5257(){S.settings=S.settings||{};if(S.settings.r5257old||!R5257OLD.length)return;const pid=bldId('5257');if(!pid)return;S.receipts=S.receipts||[];let n=0;
  R5257OLD.forEach(([no,date,payer,unit,ut,L,note])=>{const num=no||('5257-OLD-'+unit+'-'+date.slice(5).replace('-',''));if(S.receipts.some(r=>r.propId===pid&&r.no===num))return;
