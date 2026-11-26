@@ -3475,21 +3475,30 @@ let ACT_READY=false;
 function actDiff(){const now=actKeyed();if(!ACT_SNAP||!ACT_READY){ACT_SNAP=now;return}
  const A=ACT_SNAP;let n=0;
  for(const k in now){const a=A[k],b=now[k];if(n>40)break;
-  if(!a){actLog(b.l+' added',b.p);n++;continue}
-  if(a.h===b.h){if(k[0]==='u'&&a.st!==b.st&&a.av===b.av){actLog(b.l+' status: '+(a.st||'—')+' → '+(b.st||'—'),b.p);n++}continue}
-  if(k[0]==='r'&&!a.v&&b.v){actLog(b.l+' voided',b.p);n++;continue}
-  if(k[0]==='c'&&a.st!==b.st){actLog(b.l+' status: '+(a.st||'—')+' → '+(b.st||'—'),b.p);n++;continue}
-  if(k[0]==='t'){const old=new Set(a.d);const nd=b.d.filter(x=>!old.has(x));if(nd.length){nd.forEach(x=>{const [,kind,name]=x.split('|');actLog(b.l+': document attached – '+(kind||'')+(name?' ('+name+')':''),b.p)});n++;if(a.h.replace(/"docs":\[.*?\]/,'')===b.h.replace(/"docs":\[.*?\]/,''))continue}}
-  actLog(b.l+' updated',b.p);n++}
- for(const k in A)if(!now[k]){actLog(A[k].l+' deleted',A[k].p,'crems'.includes(k[0])?{dk:k[0],dd:A[k].h}:null);n++}
+  if(!a){actLog(b.l+' added',b.p,{ak:k,aa:1});n++;continue}
+  if(a.h===b.h){if(k[0]==='u'&&a.st!==b.st&&a.av===b.av){actLog(b.l+' status: '+(a.st||'—')+' → '+(b.st||'—'),b.p,{ak:k,ob:a.h,ost:a.st});n++}continue}
+  if(k[0]==='r'&&!a.v&&b.v){actLog(b.l+' voided',b.p,{ak:k,ob:a.h});n++;continue}
+  if(k[0]==='c'&&a.st!==b.st){actLog(b.l+' status: '+(a.st||'—')+' → '+(b.st||'—'),b.p,{ak:k,ob:a.h});n++;continue}
+  if(k[0]==='t'){const old=new Set(a.d);const nd=b.d.filter(x=>!old.has(x));if(nd.length){nd.forEach(x=>{const [,kind,name]=x.split('|');actLog(b.l+': document attached – '+(kind||'')+(name?' ('+name+')':''),b.p,{ak:k,ob:a.h})});n++;if(a.h.replace(/"docs":\[.*?\]/,'')===b.h.replace(/"docs":\[.*?\]/,''))continue}}
+  actLog(b.l+' updated',b.p,{ak:k,ob:a.h,ost:a.st});n++}
+ for(const k in A)if(!now[k]){actLog(A[k].l+' deleted',A[k].p,{ak:k,dk:k[0],dd:A[k].h,ost:A[k].st});n++}
  ACT_SNAP=now}
 (function actHook(){const o=save;save=function(){try{actDiff()}catch(e){console.error(e)}return o.apply(this,arguments)};setTimeout(()=>{try{ACT_SNAP=actKeyed()}catch(_){}ACT_READY=true},4000)})();
 let actQ='',actP='cur',actFrom='',actTo='';
 const ACT_ARR={c:'cheques',r:'receipts',e:'expenses',m:'mrcpts'};
-function actHas(a){try{const o=JSON.parse(a.dd);if(a.dk==='s')return (S.stmt.entries||[]).some(x=>x.id===o.id);return (S[ACT_ARR[a.dk]]||[]).some(x=>x.id===o.id)}catch(_){return true}}
-function actRestore(i){const a=(S.activity||[])[i];if(!a||!a.dd)return;let o;try{o=JSON.parse(a.dd)}catch(_){return}if(actHas(a)){toast('Already in the app');return}
- if(a.dk==='s')S.stmt.entries.push(o);else{S[ACT_ARR[a.dk]]=S[ACT_ARR[a.dk]]||[];S[ACT_ARR[a.dk]].push(o)}
- a.restored=new Date().toISOString();actLog(a.x.replace(/ deleted$/,'')+' restored',a.p);ACT_SNAP=actKeyed();save();vAct();toast('Restored')}
+function actLoc(k){const t=k[0],id=k.slice(2),A={c:'cheques',r:'receipts',e:'expenses',m:'mrcpts',t:'tenants',d:'docsLib',p:'properties'};
+ if(t==='u'){const pid=id.slice(0,id.indexOf(':')),un=id.slice(id.indexOf(':')+1);const L=()=>(S.units[pid]=S.units[pid]||[]);return {get:()=>L().find(u=>String(u.unit)===un),put:o=>{const U=L(),i=U.findIndex(u=>String(u.unit)===un);if(i>=0)U[i]=o;else U.push(o)},del:()=>{S.units[pid]=L().filter(u=>String(u.unit)!==un)}}}
+ const arr=()=>t==='s'?(S.stmt.entries=S.stmt.entries||[]):(S[A[t]]=S[A[t]]||[]);if(t!=='s'&&!A[t])return null;
+ return {get:()=>arr().find(x=>x.id===id),put:o=>{const L=arr(),i=L.findIndex(x=>x.id===id);if(i>=0)L[i]=o;else L.push(o)},del:()=>{const L=arr(),i=L.findIndex(x=>x.id===id);if(i>=0)L.splice(i,1)}}}
+function actKey(a){if(a.ak)return a.ak;if(a.dd&&a.dk){try{return a.dk+':'+JSON.parse(a.dd).id}catch(_){}}return ''}
+function actKind(a){if(!actKey(a)||a.restored)return '';if(a.dd)return 'del';if(a.aa)return 'add';if(a.ob)return 'chg';return ''}
+function actHas(a){const L=actLoc(actKey(a));return !!(L&&L.get())}
+function actRestore(i){const a=(S.activity||[])[i],k=a&&actKey(a),L=k&&actLoc(k),kind=a&&actKind(a);if(!L||!kind)return;
+ const fin=msg=>{a.restored=new Date().toISOString();actLog(msg,a.p);ACT_SNAP=actKeyed();save();vAct();toast('Done')};
+ const obj=h=>{const o=JSON.parse(h);if(k[0]==='u'&&a.ost!==undefined)o.status=a.ost;return o};
+ if(kind==='del'){if(L.get()){toast('Already in the app');return}if(!confirm('Put back: '+a.x.replace(/ deleted$/,'')+' ?'))return;L.put(obj(a.dd));fin(a.x.replace(/ deleted$/,'')+' restored')}
+ else if(kind==='chg'){const cur=L.get();if(!confirm('Go back to the version before: "'+a.x+'"?\nAny later changes to it will be replaced.'))return;const o=obj(a.ob);if(k[0]==='t'&&cur&&cur.photo)o.photo=cur.photo;L.put(o);fin(a.x+' — restored to previous version')}
+ else if(kind==='add'){if(!L.get()){toast('It is no longer in the app');return}if(!confirm('Undo: remove "'+a.x.replace(/ added$/,'')+'" ?'))return;L.del();fin(a.x.replace(/ added$/,'')+' removed (undo add)')}}
 function chqRecoverFromBackup(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let x;try{x=JSON.parse(rd.result)}catch(_){toast('That is not a valid backup file');return}
   const cur=S.cheques||[],has=c=>cur.some(y=>y.id===c.id||(y.propId===c.propId&&String(y.chqNo)===String(c.chqNo)&&+y.amount===+c.amount&&y.chqDate===c.chqDate));
   const miss=(x.cheques||[]).filter(c=>!has(c)).sort((a,b)=>String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true})||String(a.chqDate).localeCompare(String(b.chqDate)));
@@ -3504,7 +3513,7 @@ function chqRecoverFromBackup(){const inp=document.createElement('input');inp.ty
 function vAct(){const L=(S.activity||[]).slice().reverse().filter(a=>(actP==='all'||a.p===S.cur)&&(!actFrom||a.t.slice(0,10)>=actFrom)&&(!actTo||a.t.slice(0,10)<=actTo)&&(!actQ||(a.x+' '+a.who).toLowerCase().includes(actQ.toLowerCase())));
  const pn=id=>{const p=S.properties.find(x=>x.id===id);return p?(p.short||p.no):id};
  $('#main').innerHTML=topbar('Activity',`<button class="btn" id="aRec">Recover cheques from backup</button>`)+`<div class="card"><div class="bar"><input type="search" id="aq" placeholder="Search activity" value="${esc(actQ)}"><select id="ap"><option value="cur" ${actP==='cur'?'selected':''}>This building</option><option value="all" ${actP==='all'?'selected':''}>All buildings</option></select><label>From</label><input type="date" id="af" value="${actFrom}"><label>To</label><input type="date" id="at" value="${actTo}"><span class="hint">${L.length} entries</span></div>
- <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}${a.dd?(a.restored||actHas(a)?' <span class="hint">· restored</span>':` <button class="btn sm" data-ares="${(S.activity||[]).indexOf(a)}">Restore</button>`):''}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
+ <div class="tw" style="margin-top:10px"><table class="t"><tr><th>Date &amp; time</th><th>Who</th><th>Building</th><th>Activity</th></tr>${L.slice(0,1000).map(a=>`<tr><td style="white-space:nowrap">${(d=>fd(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'))(new Date(a.t))}</td><td>${esc(a.who)}</td><td>${esc(pn(a.p))}</td><td>${esc(a.x)}${(k=>a.restored?' <span class="hint">· restored</span>':k==='del'&&actHas(a)?' <span class="hint">· back in the app</span>':k?` <button class="btn sm" data-ares="${(S.activity||[]).indexOf(a)}">${k==='del'?'Restore':k==='chg'?'Restore previous':'Undo'}</button>`:'')(actKind(a))}</td></tr>`).join('')||'<tr><td colspan=4 class="hint">No activity yet. Everything you add, change or delete from now on is listed here.</td></tr>'}</table></div></div>`;
  bindTop();$('#aRec').onclick=chqRecoverFromBackup;$('#main').onclick=e=>{const b=e.target.closest('[data-ares]');if(b)actRestore(+b.dataset.ares)};$('#aq').oninput=e=>{actQ=e.target.value;const ps=e.target.selectionStart;vAct();const i=$('#aq');i.focus();i.setSelectionRange(ps,ps)};$('#ap').onchange=e=>{actP=e.target.value;vAct()};$('#af').onchange=e=>{actFrom=e.target.value;vAct()};$('#at').onchange=e=>{actTo=e.target.value;vAct()}}
 /* ================= Shared data (all users) — one set of data kept in SharePoint › App Data ================= */
 const CL={dir:()=>SP_CFG.root+'/App Data',file:()=>SP_CFG.root+'/App Data/nas_pms_data.json',busy:false,timer:null,etag:'',base:null,lastSync:null,err:'',pendingRender:false,started:false};
