@@ -3750,7 +3750,7 @@ async function ownBuild(pid,k,arg){const M=ownMeta(pid,k);const {z}=await ownSou
   z.file(sh.path,ownPut(x,M.keep,rows,[],last,M.cols))}
  else if(k==='pdc'){const sh=SH.find(s=>s.name===M.sheet)||SH[SH.length-1];let x=await z.file(sh.path).async('string'),r=M.keep+1;const rows=[],mg=[],U=units(pid);
   const eom=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10)})();
-  const G=new Map();(arg||[]).forEach(c=>{const u=U.find(x=>String(x.unit)===String(c.unit))||{},k2=chqContract(c,u),key=String(c.unit)+'|'+(k2.start||'')+'|'+(c.payer||'');if(!G.has(key))G.set(key,{u,k:k2,unit:String(c.unit||''),ten:c.payer||u.tenant||'',L:[]});G.get(key).L.push(c)});
+  const G=new Map();(arg||[]).forEach(c=>{const u=U.find(x=>String(x.unit)===String(c.unit))||{},k2=chqContract(c,u),key=String(c.unit).toUpperCase()+'|'+(k2.start||'');if(!G.has(key))G.set(key,{u,k:k2,unit:String(c.unit||''),ten:c.payer||u.tenant||'',L:[]});G.get(key).L.push(c)});
   [...G.values()].forEach(g=>{g.L.sort((a,b)=>String(a.chqDate).localeCompare(String(b.chqDate)));const r0=r,n=g.L.length,u=g.u;
    g.L.forEach((c,i)=>{const B=i===0?M.top:i===n-1?M.bot:M.mid,cl=/Cleared|Deposited/.test(c.status),del=c.status==='Deleted',hold=/hold/i.test(c.notice||''),cat=del?'blue':cl?'green':(hold||(String(c.chqDate)<=eom&&String(c.chqDate)>eom.slice(0,8)+'00'))?'yellow':'white',K=M.st[cat];
     const stx=del?'DELETED':cl?'collected':hold?'HOLD':'',shop=/SH$/i.test(g.unit);let s='';
