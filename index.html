@@ -2803,11 +2803,11 @@ function vStmt(){
 }
 const fa2=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 function stmtForm(en){
- const p=prop(),U=units(p.id),n=en?{...en}:{id:uid(),propId:p.id,kind:'rent',date:todayISO(),desc:'Rent',tenant:'',unit:'',method:'Cash',chq:'',debit:'',credit:'',receiptNo:''};
+ const p=prop(),U=units(p.id),n=en?{...en}:{id:uid(),propId:p.id,kind:'rent',date:todayISO(),desc:ownMeta(p.id,'rc')?'':'Rent',tenant:'',unit:'',method:'Cash',chq:'',debit:'',credit:'',receiptNo:''};
  const f=(k,l,ty='text',ex='')=>`<div><label>${l}</label><input data-k="${k}" type="${ty}" value="${esc(n[k])}" ${ex}></div>`;
  const o=modal(`<h3>${en?'Edit entry':'Add income'}</h3><div class="grid g3">${f('date','Date','date')}
   <div><label>Unit #</label><select data-k="unit"><option value=""></option>${U.map(u=>`<option value="${esc(u.unit)}" ${String(u.unit)===String(n.unit)?'selected':''}>${esc(u.unit)}${u.tenant?' · '+esc(u.tenant):''}</option>`).join('')}</select></div>
-  <div>${'<label>Description</label><input data-k="desc" list="sdl" value="'+esc(n.desc)+'"><datalist id="sdl">'+(()=>{const c=new Map();(S.stmt.entries||[]).filter(e=>e.propId===p.id&&e.kind==='rent'&&e.desc).forEach(e=>{const d=String(e.desc).replace(/\s+/g,' ').trim();c.set(d,(c.get(d)||0)+1)});return [...[...c.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]),'Rent','Maintenance Fee','Other Income'].filter((v,i,a)=>a.indexOf(v)===i).map(v=>'<option value="'+esc(v)+'">').join('')})()+'</datalist>'}</div>
+  <div>${'<label>Description</label><input data-k="desc" list="sdl" value="'+esc(n.desc)+'" placeholder="Pick from the list or type"><datalist id="sdl">'+(()=>{const c=new Map();(S.stmt.entries||[]).filter(e=>e.propId===p.id&&e.kind==='rent'&&e.desc).forEach(e=>{const d=String(e.desc).replace(/\s+/g,' ').trim();c.set(d,(c.get(d)||0)+1)});return [...[...c.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]),'Rent','Maintenance Fee','Other Income'].filter((v,i,a)=>a.indexOf(v)===i).map(v=>'<option value="'+esc(v)+'">').join('')})()+'</datalist>'}</div>
   <div style="grid-column:span 3">${f('tenant','Tenant')}</div>
   <div><label>Payment method</label><select data-k="method">${MODES.map(m=>`<option ${m===n.method?'selected':''}>${m}</option>`).join('')}</select></div>${f('chq','Chq number')}<div></div>
   ${f('credit','Credit — amount received (AED)','number','step="0.01"')}${en?f('debit','Debit (AED)','number','step="0.01"'):''}</div>
@@ -2815,6 +2815,7 @@ function stmtForm(en){
   ${en&&en.kind==='rent'?'<p class="hint">If you change the credit amount, its management fee line is recalculated.</p>':''}`,ov=>{
   ov.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;n[k]=el.type==='number'?(el.value===''?'':+el.value):el.value.trim()});
   if(!n.date){toast('Date is required');return false}
+  if(!n.desc){toast('Pick or type the description');return false}
   if(!(+n.credit>0)&&!(+n.debit>0)){toast('Enter an amount');return false}
   if(en){const old={credit:en.credit,method:en.method,chq:en.chq,desc:en.desc,date:en.date};Object.assign(en,n);if(en.kind==='rent'&&+n.credit!==+old.credit){const sib=S.stmt.entries.find(x=>x.grp===en.grp&&x.kind==='fee');if(sib){sib.debit=feeAmount(+n.credit,en.propId);sib.date=en.date}}
    /* keep the receipt in step, so re-saving the receipt doesn't undo this change */
@@ -4588,6 +4589,7 @@ const MX5257B=[];
  S.settings.mx5257b=1;save();if(n||m)setTimeout(()=>toast('5257 maintenance updated to Nov: '+n+' added, '+m+' corrected'),4000)})();
 
 (function fee346(){const p=(S.properties||[]).find(x=>x.id==='P-346');if(!p||p.feeVat!==undefined)return;p.feePct=5;p.feeVat=5;p.feeRound='down';save()})();
+(function fee346(){S.settings=S.settings||{};const p=(S.properties||[]).find(x=>x.id==='P-346');if(!p||S.settings.fee346)return;p.feePct=5;p.feeVat=5;p.feeRound='down';S.settings.fee346=1;save()})();
 (function addBuilding346(){if(S.properties.some(p=>p.id==='P-346'||String(p.short||'').trim()==='346'))return;S.properties.push({id:'P-346',no:'P-346',short:'346',landlord:'HEIRS OF SAIF RASHED AL NUAIMI',resUnits:48,comUnits:3,location:'Al Sharjah - Abu Shagara',plot:'',nextReceipt:1000047,feePct:5,feeVat:5,feeRound:'down',image:''});S.units['P-346']=S.units['P-346']||[];save()})();
 const D346={"U": [], "C": [], "RC": [], "MT": []};
 function load346All(){S.settings=S.settings||{};if(S.settings.d346done||!D346.U.length)return;const pid=bldId('346'),p=S.properties.find(x=>x.id===pid);if(!p)return;
