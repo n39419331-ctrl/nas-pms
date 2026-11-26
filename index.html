@@ -3726,7 +3726,7 @@ function clStart(){if(CL.started)return;CL.started=true;clSync();setInterval(clS
   if(!spOn()&&!warned&&Date.now()-t0>15000){warned=true;toast('Shared data: sign in to SharePoint in Settings to sync')}},3000)})();
 /* ================= Excel files in SharePoint — every report kept up to date automatically ================= */
 /* ===== Building's own original Excel formats (346): the office file is the template — fonts, colours, widths, sheets stay exactly; only the data rows are written ===== */
-const OWN_XL={'146':{rc:{tpl:'a_tpl_own146_rc',sheet:'Report-107',keep:18,pno:'B9',cols:'A:I',pad:1,sdate:'B11',tplIfOther:1,stars:'************',
+const OWN_XL={'146':{rc:{tpl:'a_tpl_own146_rc',sheet:'Report-107',keep:18,pno:'B9',cols:'A:I',pad:1,sdate:'B11',tplIfOther:1,stars:'************',from:'2025-09-23',
   rent:{A:16,B:16,C:15,D:18,E:18,F:16,G:20,H:17,I:19},fee:{A:16,B:21,C:16,D:16,E:16,F:16,G:16,H:20,I:16},oth:{A:16,B:16,C:15,D:18,E:18,F:16,G:20,H:17,I:16},close:{ht:'15',A:16,B:21,C:16,D:16,E:16,F:16,G:16,H:20,I:16}}},'346':{
  rc:{tpl:'a_tpl_own346_rc',byYear:true,keep:16,pno:'B7',cols:'A:I',
   rent:{A:46,B:3,C:25,D:16,E:16,F:14,G:15,H:18,I:31},close:{ht:'30.75',A:46,B:3,C:13,D:16,E:14,F:14,G:103,H:61,I:61},fee:{A:46,B:3,C:14,D:16,E:14,F:14,G:15,H:15,I:18},oth:{A:46,B:14,C:14,D:16,E:16,F:14,G:18,H:18,I:32}},
@@ -3777,7 +3777,7 @@ async function ownSource(pid,k,M){const t=xlGet(pid,k),p=S.properties.find(x=>x.
  return {z:await JSZip.loadAsync(tplBytes(M.tpl)),src:'tpl'}}
 async function ownBuild(pid,k,arg){const M=ownMeta(pid,k);const {z}=await ownSource(pid,k,M);const old=S.cur;S.cur=pid;try{const p=prop(),SH=await ownSheets(z);
  if(M.byYear||k==='rc'){const yrs=new Map();const add=(d,o)=>{const y=M.byYear?String(d||'').slice(0,4):'all';if(M.byYear&&!/^\d{4}$/.test(y))return;if(!yrs.has(y))yrs.set(y,[]);yrs.get(y).push(o)};
-  if(k==='rc')stmtSorted(pid).forEach(e=>add(e.date,e));else mtbRows(arg).forEach(o=>add(o.date,o));
+  if(k==='rc')stmtSorted(pid).forEach(e=>{if(!M.from||String(e.date)>=M.from)add(e.date,e)});else mtbRows(arg).forEach(o=>add(o.date,o));
   const cy=todayISO().slice(0,4);for(const [y,L] of [...yrs.entries()].sort()){let sh=M.byYear?(await ownSheets(z)).find(s=>s.name===y):((await ownSheets(z)).find(s=>s.name===M.sheet)||SH[0]);if(sh&&y<cy)continue; /* past years: the office's own sheets stay exactly as they are */
    if(!sh){const yearSheets=(await ownSheets(z)).filter(s=>/^\d{4}$/.test(s.name)).sort((a,b)=>a.name.localeCompare(b.name));const src=yearSheets[yearSheets.length-1]||SH[SH.length-1];sh={name:y,path:await ownClone(z,src.path,y)}}
    let x=await z.file(sh.path).async('string'),r=M.keep+1;const rows=[];if(M.sdate)x=setCellVal(x,M.sdate,fd(todayISO()));const ownTxt=M.pad?ownTxt2:ownTxt0;
