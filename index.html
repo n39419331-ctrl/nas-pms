@@ -1829,13 +1829,13 @@ function vChq(){
        else if(k===14)r+=td(fd(x)+(d!=null&&d<=7?' <span class="tag '+(d<0?'red':'amb')+'">'+(d<0?'overdue':d+'d')+'</span>':''),'center',1,k);
        else if(k===19)r+=td(esc(x||''),'left',1,k);
        else r+=td(fmt(k,x),k===7?'left':'center',rr,k)});
-      r+=td(c.virtual?'':`<button class="pbtn" data-cf="${c.id}" title="View / add cheque copies">📎 ${(c.files||[]).length||'Add'}</button> ${(c.depFiles||[]).length?`<button class="pbtn" data-ds="${c.id}">Slip</button> `:''}<button class="pbtn" data-e="${c.id}">Edit</button>`,'left');return r+'</tr>'}).join('')).join('')||'<tr><td colspan=24 class="hint">No cheques</td></tr>';
+      r+=td(c.virtual?'':`<button class="pbtn" data-cf="${c.id}" title="View / add cheque copies">📎 ${(c.files||[]).length||'Add'}</button> ${(c.depFiles||[]).length?`<button class="pbtn" data-ds="${c.id}">Slip</button> `:''}<button class="pbtn" data-e="${c.id}">Edit</button> <button class="pbtn" data-cx="${c.id}" style="color:var(--red)">Delete</button>`,'left');return r+'</tr>'}).join('')).join('')||'<tr><td colspan=24 class="hint">No cheques</td></tr>';
     $('#ct').innerHTML=h};
   draw();
   $('#cqi').oninput=e=>{cq=e.target.value;draw()};$('#cfs').onchange=e=>{cs=e.target.value;draw()};
   $('#ct').onchange=e=>{const id=e.target.dataset.s;if(!id)return;const c=S.cheques.find(x=>x.id===id);c.status=e.target.value;
     if(c.status==='Deposited'&&!c.depositDate)c.depositDate=todayISO();if(c.status==='Cleared'){if(!c.depositDate)c.depositDate=todayISO();if(!c.clearedDate)c.clearedDate=todayISO()}save();draw();if(c.status==='Cleared')askSlip(c)};
-  $('#ct').onclick=e=>{const ds=e.target.closest('[data-ds]');if(ds){const c=S.cheques.find(x=>x.id===ds.dataset.ds);(c.depFiles||[]).forEach(id=>openFile(id,false));return}const f=e.target.closest('[data-cf]');if(f){chqFilesDlg(S.cheques.find(x=>x.id===f.dataset.cf));return}const b=e.target.closest('[data-e]');if(b)chqForm(S.cheques.find(x=>x.id===b.dataset.e))};
+  $('#ct').onclick=e=>{const ds=e.target.closest('[data-ds]');if(ds){const c=S.cheques.find(x=>x.id===ds.dataset.ds);(c.depFiles||[]).forEach(id=>openFile(id,false));return}const f=e.target.closest('[data-cf]');if(f){chqFilesDlg(S.cheques.find(x=>x.id===f.dataset.cf));return}const x=e.target.closest('[data-cx]');if(x){const c=S.cheques.find(y=>y.id===x.dataset.cx);if(c&&confirm('Delete cheque '+(c.chqNo&&c.chqNo!=='-'?c.chqNo+' ':'')+'· unit '+(c.unit||'')+' · '+(c.payer||'')+' · AED '+fa2(+c.amount||0)+' · '+fd(c.chqDate)+'?\nIt is removed from the PDC Excel too. You can restore it from Activity.')){S.cheques=S.cheques.filter(y=>y!==c);save();draw();toast('Cheque deleted')}return}const b=e.target.closest('[data-e]');if(b)chqForm(S.cheques.find(x=>x.id===b.dataset.e))};
   $('#cAdd').onclick=()=>chqForm(null);$('#cDep').onclick=depositSlip;$('#cScan').onclick=chqScanAttach;$('#cPrn').onclick=printChq;
   $('#cExp').onclick=()=>exportPDC(chqFiltered());
   ($('#cCopy')||{}).onclick=()=>copyPDC(chqFiltered());$('#cWa').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(chqWaText(chqFiltered())),'_blank','noopener');
