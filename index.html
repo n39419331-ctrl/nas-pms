@@ -3111,11 +3111,12 @@ function mrRegister(){const p=prop(),E=mrRegList(),R=mtbRows(E),P=mtbPeriod(R),c
  <tr><td style="${c}"></td><td style="${c};font-weight:700">OPENING BALANCE</td><td style="${c}"></td><td style="${c};text-align:right">0.00</td><td style="${c};text-align:right">0.00</td><td style="${c};text-align:right">0.00</td></tr>
  ${R.map(o=>`<tr><td style="${c};white-space:nowrap">${fd(o.date)}</td><td style="${c}">${esc(o.desc)}</td><td style="${c};white-space:nowrap">${esc(o.notes)}</td><td style="${c};text-align:right">${n(o.debit)}</td><td style="${c};text-align:right">${n(o.credit)}</td><td style="${c};text-align:right">${n(o.bal)}</td></tr>`).join('')}</table></div></div>`}
 let mdraft=null;
-function mrPage(){const p=prop(),us=units()||[],no=String(S.settings.mrNext||1000582);
+const mrNextOf=pid=>{const b=(S.settings.mrNextB||{})[pid];return +b||+S.settings.mrNext||1000582};
+function mrPage(){const p=prop(),us=units()||[],no=String(mrNextOf(S.cur));
  if(!mdraft||mdraft.propId!==S.cur)mdraft={propId:S.cur,building:p.short||p.no,date:todayISO(),flat:'',lines:[{}]};const d=mdraft;
  const host=$('#mrHost');if(!host)return;host.className='split';host.style.cssText='';
  const F=[['desc','Description'],['ft','Failure type'],['act','Action'],['q','Quality/Type Brand/Make'],['qty','Quantity'],['ch','Charges (AED)'],['uc','Update changes'],['cm','Comments']];
- host.innerHTML=`<div class="card"><div class="grid g2"><div><label>Receipt no</label><input id="mrR" readonly tabindex="-1" style="background:#f3f1ec;cursor:default" value="${esc(no)}"></div><div><label>Date</label><input type="date" id="mrD" value="${esc(d.date)}"></div>
+ host.innerHTML=`<div class="card"><div class="grid g2"><div><label>Receipt no</label><input id="mrR" inputmode="numeric" value="${esc(no)}" title="You can change the receipt number"></div><div><label>Date</label><input type="date" id="mrD" value="${esc(d.date)}"></div>
   <div><label>Building</label><input id="mrB" value="${esc(d.building)}"></div><div><label>Flat no</label><input id="mrF" list="mrFL" value="${esc(d.flat)}" placeholder="e.g. 303" autocomplete="off"><datalist id="mrFL"><option value="GENERAL MAINTENANCE">General maintenance (building)</option>${us.map(u=>`<option value="${esc(u.unit)}">${esc(u.tenant||'')}</option>`).join('')}</datalist></div></div>
   <div style="margin-top:12px"><label>Items</label><div id="mrLn"></div><button class="btn sm" id="mrAdd" style="margin-top:6px">+ Add line</button></div>
   <div class="stats" id="mrTot" style="margin-top:12px"></div>
@@ -3136,9 +3137,10 @@ function mrPage(){const p=prop(),us=units()||[],no=String(S.settings.mrNext||100
  $('#mrAdd').onclick=()=>{d.lines.push({});lines();prev()};$('#mrClr').onclick=()=>{mdraft=null;mrPage()};
  const doSave=async pdf=>{const L=d.lines.map(l=>{const o={};F.forEach(([k])=>o[k]=String(l[k]||'').trim());return o}).filter(l=>l.desc||l.ch);
   if(!L.length){toast('Add at least one item');return}if(!d.flat.trim()){toast('Enter the flat no');return}
-  const n=+S.settings.mrNext||1000582,t=(()=>{const s=Math.round(L.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,v=Math.round(s*5)/100;return {sub:s,vat:v,total:Math.round((s+v)*100)/100}})();
+  const nr=String(($('#mrR')||{}).value||'').trim();if(!/^\d+$/.test(nr)){toast('Receipt no must be a number');return}const n=+nr;
+  if((S.mrcpts||[]).some(x=>x.propId===S.cur&&String(x.no)===String(n))){toast('Receipt no '+n+' already exists in this building');return}const t=(()=>{const s=Math.round(L.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,v=Math.round(s*5)/100;return {sub:s,vat:v,total:Math.round((s+v)*100)/100}})();
   const r={id:uid(),propId:S.cur,no:String(n),building:d.building.trim(),date:d.date,flat:d.flat.trim(),lines:L,...t,created:Date.now()};
-  S.mrcpts=S.mrcpts||[];S.mrcpts.push(r);S.settings.mrNext=n+1;S.expenses=S.expenses||[];S.expenses.push({id:uid(),propId:r.propId,date:r.date,unit:r.flat,category:'Maintenance – General',desc:r.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+r.no,amount:r.sub,vat:r.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],mrId:r.id});
+  S.mrcpts=S.mrcpts||[];S.mrcpts.push(r);S.settings.mrNextB=S.settings.mrNextB||{};S.settings.mrNextB[S.cur]=Math.max(n+1,(S.mrcpts||[]).filter(x=>x.propId===S.cur).reduce((m,x)=>Math.max(m,+x.no+1||0),0));S.expenses=S.expenses||[];S.expenses.push({id:uid(),propId:r.propId,date:r.date,unit:r.flat,category:'Maintenance – General',desc:r.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+r.no,amount:r.sub,vat:r.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],mrId:r.id});
   save();mdraft=null;render();if(pdf)await mrPDF(r);toast('Maintenance receipt '+r.no+' saved')};
  $('#mrSavePdf').onclick=()=>doSave(true);$('#mrSave').onclick=()=>doSave(false)}
 let mq='';
