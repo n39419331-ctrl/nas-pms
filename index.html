@@ -2794,19 +2794,23 @@ function rcParseWb(wb){const out=[],T=v=>String(v==null?'':v).replace(/\s+/g,' '
   a.slice(0,hi).forEach(r=>{if(/property\s*#/i.test(T(r[0]))&&!pno)pno=T(r[1])});
   const H=a[hi].map(x=>T(x).toLowerCase()),ci=n=>H.findIndex(h=>h.startsWith(n)),cT=ci('tenant'),cU=ci('unit'),cM=ci('payment'),cC=ci('chq'),cD=ci('debit'),cR=ci('credit');
   const yS=/^\d{4}$/.test(T(sn))?T(sn):'';let lastDate='';
+  /* Excel date cells: some sheets hold day/month swapped (typed dd/mm on a mm/dd computer) — pick, per sheet, the reading that keeps the dates in order */
+  const cand=r=>{const d=r[0];if(typeof d!=='number')return null;const a1=toISO(d);if(!a1)return null;const [y,m,dd]=a1.split('-');return +dd<=12?[a1,y+'-'+dd+'-'+m]:[a1,a1]};
+  const seq=sw=>a.slice(hi+1).map(r=>{const c=cand(r);if(c)return c[sw?1:0];const m=T(r[0]).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):''}).filter(Boolean);
+  const inv=s=>s.reduce((n,v,i)=>n+(i&&v<s[i-1]?1:0),0),SW=inv(seq(true))<inv(seq(false));
   a.slice(hi+1).forEach(r=>{const desc=T(r[1]);if(!desc||/opening balance|closing balance/i.test(desc)||/closing balance/i.test(T(r[cT])))return;const deb=N(r[cD]),cr=N(r[cR]);if(!deb&&!cr)return;
-   let d=r[0],date='';if(typeof d==='number')date=toISO(d);else{const s=T(d),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);if(m){let y=m[3];if(y.length!==4||+y<2015||+y>2035)y=yS||String(lastDate).slice(0,4);date=y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')}else date=toISO(s)}
+   let d=r[0],date='';if(typeof d==='number'){const c=cand(r);date=c?c[SW?1:0]:''}else{const s=T(d),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);if(m){let y=m[3];if(y.length!==4||+y<2015||+y>2035)y=yS||String(lastDate).slice(0,4);date=y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')}else date=toISO(s)}
    if(!date)date=lastDate;if(!date)return;if(yS&&date.slice(0,4)!==yS&&lastDate&&lastDate.slice(0,4)===yS&&Math.abs(+date.slice(0,4)-+yS)>=1)date=yS+date.slice(4);lastDate=date;
    let ten=T(r[cT]),unit=T(r[cU]);const fm=ten.match(/^Flat no:\s*(.+)$/i);if(fm&&!unit){unit=fm[1].trim();ten=''}
    let meth=T(r[cM]).toLowerCase();meth=/transfer|bank/.test(meth)?'Bank Transfer':/cheque|check|chq/.test(meth)?'Cheque':/card/.test(meth)?'Card':meth?'Cash':'';
    out.push({sheet:sn,date,desc,tenant:ten,unit,method:meth,chq:T(r[cC]),debit:Math.round(deb*100)/100,credit:Math.round(cr*100)/100,fee:/management fee/i.test(desc)})})});
  return {pno,L:out}}
-function rcImportWb(wb,fname){const pid=S.cur,p=prop(),bno=String(p.short||p.no||'').replace(/^P[-/]/i,'');const {pno,L}=rcParseWb(wb);
+function rcImportWb(wb,fname){const pid=S.cur,p=prop(),bno=String(p.short||p.no||'').replace(/^P[-/]/i,'');let {pno,L}=rcParseWb(wb);
  if(!L.length){toast('No Rent Collection lines found in this Excel');return}
  const bad=pno&&String(pno).replace(/^P[-/]/i,'').replace(/\s*\(.*$/,'').trim()!==bno;
  // group: rent/income line + its following fee line
- const G=[];L.forEach(x=>{if(x.fee&&G.length&&!G[G.length-1].fee&&G[G.length-1].rent)G[G.length-1].fee=x;else if(x.fee)G.push({fee:x,lone:true});else G.push({rent:x})});
- const E=(S.stmt.entries||[]).filter(e=>e.propId===pid),R=E.filter(e=>e.kind!=='fee'),used=new Set(),U=v=>String(v||'').trim().toUpperCase(),days=(a,b)=>Math.abs((new Date(a)-new Date(b))/864e5);
+ const SKIP=L.filter(x=>!x.fee&&!(x.credit>0)&&x.debit>0);L=L.filter(x=>!SKIP.includes(x));const G=[];L.forEach(x=>{if(x.fee&&G.length&&!G[G.length-1].fee&&G[G.length-1].rent)G[G.length-1].fee=x;else if(x.fee)G.push({fee:x,lone:true});else G.push({rent:x})});
+ const E=(S.stmt.entries||[]).filter(e=>e.propId===pid),R=E.filter(e=>e.kind!=='fee'),used=new Set(),U=v=>{const s=String(v||'').trim().toUpperCase(),m=s.match(/^(?:SHOP|SH)\s*-?\s*(\d+)$|^(\d+)\s*-?\s*(?:SHOP|SH)$/);return m?(m[1]||m[2])+'SH':s},UN=units(pid),uOf=v=>{const u=UN.find(x=>U(x.unit)===U(v));return u?String(u.unit):v},days=(a,b)=>Math.abs((new Date(a)-new Date(b))/864e5);
  const add=[],same=[],fix=[];
  G.forEach(g=>{if(!g.rent){add.push(g);return}const x=g.rent;
   let m=R.find(e=>!used.has(e.id)&&U(e.unit)===U(x.unit)&&Math.abs(+e.credit-x.credit)<.01&&e.date===x.date)||R.find(e=>!used.has(e.id)&&U(e.unit)===U(x.unit)&&Math.abs(+e.credit-x.credit)<.01&&days(e.date,x.date)<=35);
@@ -2815,12 +2819,12 @@ function rcImportWb(wb,fname){const pid=S.cur,p=prop(),bno=String(p.short||p.no|
  const yrs=[...new Set(L.map(x=>x.sheet))].join(', '),sum=a=>a.reduce((s,g)=>s+(g.rent?g.rent.credit:0),0);
  const o=modal(`<h3>Import Rent Collection — ${esc(p.short||p.no)}</h3><p class="hint">${esc(fname||'')} · sheets: ${esc(yrs)}</p>
   ${bad?`<div style="margin:10px 0;padding:10px;border-radius:8px;background:#fdecea;color:#8a1c1c"><b>This Excel is for property ${esc(pno)}, not ${esc(bno)}.</b> Open the right building first. Nothing will be imported.</div>`:''}
-  <p style="margin:10px 0"><b>${G.filter(g=>g.rent).length}</b> income lines in the Excel · <b>${same.length}</b> already in the app · <b style="color:var(--green,#1a7f37)">${add.filter(g=>g.rent).length} to add (AED ${fa2(sum(add))})</b> · <b>${fix.length}</b> to align (date / wording)${extra.length?` · <b style="color:#b45309">${extra.length} in the app but not in the Excel</b> (left as they are)`:''}</p>
+  <p style="margin:10px 0"><b>${G.filter(g=>g.rent).length}</b> income lines in the Excel · <b>${same.length}</b> already in the app · <b style="color:var(--green,#1a7f37)">${add.filter(g=>g.rent).length} to add (AED ${fa2(sum(add))})</b> · <b>${fix.length}</b> to align (date / wording)${SKIP.length?` · ${SKIP.length} transfers to the main account (debit only) not imported`:''}${extra.length?` · <b style="color:#b45309">${extra.length} in the app but not in the Excel</b> (left as they are)`:''}</p>
   ${add.length?`<div class="tw" style="max-height:280px;overflow:auto"><table class="t"><tr><th>Date</th><th>Description</th><th>Tenant</th><th>Unit</th><th class="r">Credit</th><th class="r">Fee</th></tr>${add.map(g=>{const x=g.rent||g.fee;return `<tr><td>${fd(x.date)}</td><td>${esc(x.desc)}</td><td>${esc(x.tenant)}</td><td>${esc(x.unit)}</td><td class="r">${g.rent?fa2(x.credit):''}</td><td class="r">${g.fee?fa2(g.fee.debit):''}</td></tr>`}).join('')}</table></div>`:''}
   ${extra.length?`<details style="margin-top:8px"><summary class="hint">Show the ${extra.length} app lines not found in the Excel</summary><div class="tw" style="max-height:200px;overflow:auto"><table class="t">${extra.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.unit)}</td><td>${esc(e.tenant)}</td><td>${esc(e.desc)}</td><td class="r">${fa2(e.credit)}</td></tr>`).join('')}</table></div></details>`:''}`,
   bad||(!add.length&&!fix.length)?null:()=>{S.stmt.entries=S.stmt.entries||[];
    fix.forEach(([m,g])=>{m.date=g.rent.date;m.desc=g.rent.desc;S.stmt.entries.filter(e=>e.grp===m.grp&&e.kind==='fee').forEach(f=>{f.date=g.rent.date})});
-   add.forEach(g=>{const grp=uid(),x=g.rent||g.fee,base={propId:pid,grp,date:x.date,tenant:g.rent?x.tenant:'',unit:g.rent?x.unit:'',method:x.method||'',chq:x.chq||'',receiptNo:'',src:'rcimp'};
+   add.forEach(g=>{const grp=uid(),x=g.rent||g.fee,base={propId:pid,grp,date:x.date,tenant:g.rent?x.tenant:'',unit:g.rent?uOf(x.unit):'',method:x.method||'',chq:x.chq||'',receiptNo:'',src:'rcimp'};
     if(g.rent)S.stmt.entries.push({...base,id:uid(),kind:'rent',desc:x.desc,debit:0,credit:x.credit});
     if(g.fee)S.stmt.entries.push({...base,id:uid(),kind:'fee',desc:g.fee.desc,debit:g.fee.debit,credit:0})});
    actLog('Rent Collection Excel imported ('+(fname||'')+'): '+add.length+' added, '+fix.length+' aligned',pid);save();render();toast(add.length+' lines added, '+fix.length+' aligned')},'Import');$('.modal',o).style.width='min(1000px,100%)'}
@@ -3725,7 +3729,7 @@ async function ownSource(pid,k,M){const t=xlGet(pid,k),p=S.properties.find(x=>x.
 async function ownBuild(pid,k,arg){const M=ownMeta(pid,k);const {z}=await ownSource(pid,k,M);const old=S.cur;S.cur=pid;try{const p=prop(),SH=await ownSheets(z);
  if(M.byYear){const yrs=new Map();const add=(d,o)=>{const y=String(d||'').slice(0,4);if(!/^\d{4}$/.test(y))return;if(!yrs.has(y))yrs.set(y,[]);yrs.get(y).push(o)};
   if(k==='rc')stmtSorted(pid).forEach(e=>add(e.date,e));else mtbRows(arg).forEach(o=>add(o.date,o));
-  for(const [y,L] of [...yrs.entries()].sort()){let sh=(await ownSheets(z)).find(s=>s.name===y);
+  const cy=todayISO().slice(0,4);for(const [y,L] of [...yrs.entries()].sort()){let sh=(await ownSheets(z)).find(s=>s.name===y);if(sh&&y<cy)continue; /* past years: the office's own sheets stay exactly as they are */
    if(!sh){const yearSheets=(await ownSheets(z)).filter(s=>/^\d{4}$/.test(s.name)).sort((a,b)=>a.name.localeCompare(b.name));const src=yearSheets[yearSheets.length-1]||SH[SH.length-1];sh={name:y,path:await ownClone(z,src.path,y)}}
    let x=await z.file(sh.path).async('string'),r=M.keep+1;const rows=[];
    const CL=((S.settings.xlClose||{})[pid]||{})[k]||[];let ci=0;
