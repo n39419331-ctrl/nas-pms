@@ -2734,6 +2734,20 @@ async function exportStatement(from,to){if(ownMeta(S.cur,'rc'))return ownExport(
  }catch(e){console.error(e);toast('Could not create the Excel file')}}
 
 /* Rent Collection in Excel (download and copy): wording and empty cells follow the office template */
+function rcPer(e){const pid=e.propId,U=x=>String(x||'').trim().toUpperCase(),d=e.date,u=(S.units[pid]||[]).find(x=>U(x.unit)===U(e.unit))||{},B=[];
+ if(u.start)B.push({start:u.start,end:u.end,ren:/renew/i.test(u.lease||'')});
+ const c=e.chqId&&(S.cheques||[]).find(c=>c.id===e.chqId);if(c&&c.cStart)B.push({start:c.cStart,end:c.cEnd});
+ (S.tenants||[]).filter(t=>t.propId===pid&&U(t.unit)===U(e.unit)).forEach(t=>(t.leases||[]).forEach(l=>{if(l.start)B.push({start:l.start,end:l.end})}));
+ const sh=(iso,y)=>{if(!iso)return iso;const m=String(iso).match(/^(\d{4})(-\d\d-\d\d)/);return m?(+m[1]+y)+m[2]:iso},early=iso=>{const t=new Date(iso);t.setDate(t.getDate()-60);return t.toISOString().slice(0,10)};
+ for(const tol of [0,1])for(const b of B)for(const y of [0,-1,1,-2,2,-3,-4,-5]){const st=sh(b.start,y),en=sh(b.end,y);if(!st)continue;
+  if((tol?(d>=early(st)&&d<st):(st<=d&&(!en||d<=en))))return {start:st,end:en,ren:y===0?b.ren:undefined}}
+ return null}
+/* 146: which payment of the contract this is (First / Second … , first payment of a renewed contract = First Payment After Renewal) */
+function rcOrd(e){const pid=e.propId,U=x=>String(x||'').trim().toUpperCase(),W=['','First','Second','Third','Fourth','Fifth','Sixth','Seventh','Eighth','Ninth','Tenth','Eleventh','Twelfth'],k=rcPer(e);if(!k)return '';
+ const A=(S.stmt.entries||[]).filter(x=>x.propId===pid&&x.kind==='rent'&&U(x.unit)===U(e.unit)&&!/security|parking/i.test(x.desc||''));
+ const L=A.filter(x=>{const q=x===e?k:rcPer(x);return q&&q.start===k.start}).sort((a,b)=>String(a.date).localeCompare(String(b.date))),n=L.findIndex(x=>x===e||(x.id&&x.id===e.id))+1;if(!n||!W[n])return '';
+ if(k.ren==null)k.ren=A.some(x=>x.date<k.start&&x!==e&&U(x.tenant)&&U(x.tenant)===U(e.tenant))||A.some(x=>x.date<k.start&&!L.includes(x));
+ return W[n]+' Payment'+(n===1&&k.ren?' After Renewal':'')}
 const stmtView=e=>{const fee=e.kind==='fee',d=String(e.desc||''),rent=/^rent(al)?\b/i.test(d);let desc=d;
  if(fee)desc='Prop- Property Management Fee Transit ';
         else if(/parking/i.test(d)&&!(rent&&/\b\d+(st|nd|rd|th)\b|\b(first|second|third|fourth|fifth|sixth)\b/i.test(d)))desc='Prop- Parking ';
@@ -2741,6 +2755,7 @@ const stmtView=e=>{const fee=e.kind==='fee',d=String(e.desc||''),rent=/^rent(al)
  else if(rent){const W=['','First','Second','Third','Fourth','Fifth','Sixth','Seventh','Eighth','Ninth','Tenth'],m=d.match(/\b(\d+)(?:st|nd|rd|th)\b/i);let o=m?(W[+m[1]]||''):'';
   if(!o){const w=d.match(/\b(first|second|third|fourth|fifth|sixth)\b/i);if(w)o=w[1][0].toUpperCase()+w[1].slice(1).toLowerCase()}
   desc='Prop- Apartment Rent'+(o?' / '+o+' payment ':' ')}
+ if(!fee&&bldNo(e.propId)==='146'){if(/^apartment rent/i.test(d.trim()))desc='Prop- '+d.trim()+' ';else if(rent&&desc==='Prop- Apartment Rent '){const w=rcOrd(e);if(w)desc='Prop- Apartment Rent / '+w+' '}desc=desc.replace(/ payment $/,' Payment ')}
  return {desc,tenant:fee?'':e.tenant,unit:fee?'':e.unit,method:fee?'':(/^bank\s*transfer$/i.test(String(e.method||'').trim())?'Transfer':e.method),chq:fee?'':(e.chq||''),debit:e.debit>0?e.debit:0,credit:e.credit>0?e.credit:0}};
 /* Copy the Rent Collection rows (row 18 OPENING BALANCE + entries, columns A–I) — same values, formulas and formats as Export Excel */
 async function copyStatement(from,to){
