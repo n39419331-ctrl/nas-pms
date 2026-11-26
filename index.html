@@ -3049,6 +3049,16 @@ function expList(){const q=eq.toLowerCase();return S.expenses.filter(e=>e.propId
 const mrN=v=>{v=Math.round((+v||0)*100)/100;return Number.isInteger(v)?String(v):v.toFixed(2)};
 function mrList(){const R=(S.mrcpts||[]).filter(r=>r.propId===S.cur).sort((a,b)=>(+b.no)-(+a.no));
  return `<div class="card" style="margin-top:14px"><b>Maintenance receipts</b> <span class="hint">${R.length} · next no. ${S.settings.mrNext||1000582}</span>${R.length?`<div class="tw" style="margin-top:8px"><table class="t"><tr><th>Receipt no</th><th>Date</th><th>Flat no</th><th>Description</th><th class="r">Subtotal</th><th class="r">VAT 5%</th><th class="r">Grand total</th><th></th></tr>${R.map(r=>`<tr><td>${esc(r.no)}</td><td>${fd(r.date)}</td><td>${esc(r.flat)}</td><td>${esc(r.lines.map(l=>l.desc).join(', '))}</td><td class="r">${fa2(r.sub)}</td><td class="r">${fa2(r.vat)}</td><td class="r">${fa2(r.total)}</td><td style="white-space:nowrap"><button class="btn sm" data-mrp="${r.id}">PDF</button> <button class="btn sm" data-mrd="${r.id}">Word</button> <button class="btn sm danger" onclick="mrDelete('${r.id}')">Delete</button></td></tr>`).join('')}</table></div>`:''}</div>`}
+/* maintenance receipt photos: kept with the receipt and uploaded with it to <building> › MAINTENANCE INVOICE › <flat> › <receipt no> */
+function mrPickFiles(cb){const i=document.createElement('input');i.type='file';i.multiple=true;i.accept='image/*,video/*,.pdf';i.onchange=async()=>{const out=[];for(const f of [...i.files]){const data=await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=()=>res(rd.result);rd.onerror=rej;rd.readAsDataURL(f)});const o={id:uid(),name:f.name,type:f.type,data};try{await IDB.put(o)}catch(e){toast('Could not store '+f.name);continue}out.push({id:o.id,name:o.name,type:o.type})}if(out.length)cb(out)};i.click()}
+async function mrUploadAll(r,withDocs,only){if(!spOn()){if(withDocs)toast('Not uploaded — sign in to SharePoint in Settings');return}try{if(!spUserFolder()&&!await spPickUser(false))return;
+ const need=new Set(),path=await spResolve(spSegs({propId:r.propId,area:'mrinv',flat:r.flat,no:r.no}),need),rel=path.slice(SP_CFG.root.length+1),items=[];
+ if(withDocs){items.push({name:'Maintenance receipt '+r.no+'.pdf',get:()=>mrPDF(r,false)});items.push({name:r.no+'.docx',get:()=>mrDocx(r,true)})}
+ (only||r.files||[]).forEach(f=>items.push({name:f.name,get:async()=>{const x=await IDB.get(f.id);return x&&spB64(x.data)}}));if(!items.length)return;
+ if(!spSt().auto&&!await spAsk(need,[],items.map(i=>rel+'/'+i.name)))return;if(need.size)await spCreate(need);let n=0;
+ for(const it of items){try{const b=await it.get();if(!b)continue;await spPut(path,it.name,b);n++}catch(e){console.error(e)}}
+ actLog('Maintenance receipt '+r.no+': '+n+' file(s) uploaded to SharePoint › '+rel,r.propId);save();toast(n+' file(s) uploaded to SharePoint › '+rel)}catch(e){console.error(e);toast('SharePoint: '+(e.message||'upload failed'))}}
+function mrAddPhotos(id){const r=(S.mrcpts||[]).find(x=>x.id===id);if(!r)return;mrPickFiles(F2=>{r.files=(r.files||[]).concat(F2);save();render();toast(F2.length+' photo(s) attached to receipt '+r.no);mrUploadAll(r,false,F2)})}
 /* delete a maintenance receipt from the register (restorable from Activity) */
 function mrDelete(id){const r=(S.mrcpts||[]).find(x=>x.id===id);if(!r)return;
  if(!confirm('Delete maintenance receipt '+r.no+' (flat '+(r.flat||'')+', AED '+fa2(r.total||0)+')?\nYou can restore it from Activity.'))return;
@@ -3081,7 +3091,6 @@ async function mrPDF(r,dl=true){if(!window.html2canvas||!window.jspdf){toast('PD
   const c=await html2canvas(host.firstElementChild,{scale:2.5,backgroundColor:'#ffffff',logging:false});
   const pdf=new jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});pdf.addImage(c.toDataURL('image/jpeg',.93),'JPEG',0,0,210,297);
   const blob=pdf.output('blob'),nm='Maintenance receipt '+r.no+' - '+r.building+' - '+r.flat+'.pdf';
-  if(spOn())spSaveFile('maint','Maintenance receipt '+r.no+'.pdf',blob,{propId:r.propId,supplier:'Maintenance receipts'});
   if(dl){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nm;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)}
   return blob}catch(e){console.error(e);toast('Could not create the PDF')}finally{host.remove()}}
 async function mrForm(pg){const p=prop(),us=units()||[],no=S.settings.mrNext||1000582,logo=await mrLogo();
@@ -3098,13 +3107,13 @@ async function mrForm(pg){const p=prop(),us=units()||[],no=S.settings.mrNext||10
   const sub=Math.round(L.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,vat=Math.round(sub*5)/100;
   const r={id:uid(),propId:S.cur,no:String(no),building:$('#mrB',o).value.trim(),date:$('#mrD',o).value,flat:$('#mrF',o).value.trim(),lines:L,sub,vat,total:Math.round((sub+vat)*100)/100,created:Date.now()};
   S.mrcpts=S.mrcpts||[];S.mrcpts.push(r);S.settings.mrNext=no+1;S.expenses=S.expenses||[];S.expenses.push({id:uid(),propId:r.propId,date:r.date,unit:r.flat,category:'Maintenance – General',desc:r.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+r.no,amount:r.sub,vat:r.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],mrId:r.id});save();if(!pg)o.remove();render();await mrPDF(r);toast('Maintenance receipt '+r.no+' saved')}}
-async function mrDocx(r){try{const z=await JSZip.loadAsync(tplBytes('a_tpl_mr'));let x=await z.file('word/document.xml').async('string');
+async function mrDocx(r,blobOnly){try{const z=await JSZip.loadAsync(tplBytes('a_tpl_mr'));let x=await z.file('word/document.xml').async('string');
   const X=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const m=x.match(/<w:tr[ >](?:(?!<w:tr[ >]).)*?\{\{desc\}\}.*?<\/w:tr>/s);
   if(m){const rows=r.lines.map((l,i)=>m[0].replace('{{n}}',i+1).replace('{{desc}}',X(l.desc)).replace('{{ft}}',X(l.ft)).replace('{{act}}',X(l.act)).replace('{{q}}',X(l.q)).replace('{{qty}}',X(l.qty)).replace('{{ch}}',l.ch===''?'':X(mrN(l.ch))).replace('{{uc}}',X(l.uc)).replace('{{cm}}',X(l.cm))).join('');x=x.replace(m[0],rows)}
   x=x.replace('{{B}}',X(r.building)).replace('{{D}}',X(fd(r.date))).replace('{{F}}',X(r.flat)).replace('{{R}}',X(r.no)).replace('{{ST}}',mrN(r.sub)).replace('{{VAT}}',mrN(r.vat)).replace('{{GT}}',mrN(r.total));
   z.file('word/document.xml',x,{createFolders:false});
-  const blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'});if(spOn())spSaveFile('maint','Maintenance receipt '+r.no+'.docx',blob,{propId:r.propId,supplier:'Maintenance receipts'});
+  const blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',compression:'DEFLATE'});if(blobOnly)return blob;
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Maintenance receipt '+r.no+' - '+r.building+' - '+r.flat+'.docx';document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)
  }catch(e){console.error(e);toast('Could not create the Word file')}}
 function mrRegList(){return (S.expenses||[]).filter(e=>e.propId===S.cur&&(e.mrId||e.mrNo||/^Receipt\s/i.test(e.invNo||'')))}
@@ -3125,6 +3134,7 @@ function mrPage(){const p=prop(),us=units()||[],no=String(mrNextOf(S.cur));
  host.innerHTML=`<div class="card"><div class="grid g2"><div><label>Receipt no</label><input id="mrR" inputmode="numeric" value="${esc(no)}" title="You can change the receipt number"></div><div><label>Date</label><input type="date" id="mrD" value="${esc(d.date)}"></div>
   <div><label>Building</label><input id="mrB" value="${esc(d.building)}"></div><div><label>Flat no</label><input id="mrF" list="mrFL" value="${esc(d.flat)}" placeholder="e.g. 303" autocomplete="off"><datalist id="mrFL"><option value="GENERAL MAINTENANCE">General maintenance (building)</option>${us.map(u=>`<option value="${esc(u.unit)}">${esc(u.tenant||'')}</option>`).join('')}</datalist></div></div>
   <div style="margin-top:12px"><label>Items</label><div id="mrLn"></div><button class="btn sm" id="mrAdd" style="margin-top:6px">+ Add line</button></div>
+  <div style="margin-top:12px"><label>Photos / videos</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="mrPhB">📎 Attach photos</button><span class="hint" id="mrPhL"></span></div></div>
   <div class="stats" id="mrTot" style="margin-top:12px"></div>
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" id="mrSavePdf">Save &amp; PDF</button><button class="btn" id="mrSave">Save</button><button class="btn" id="mrClr">Clear</button></div>
   <p class="hint">Each receipt is also added to Maintenance &amp; Expenses and to the Maintenance register.</p></div>
@@ -3139,15 +3149,17 @@ function mrPage(){const p=prop(),us=units()||[],no=String(mrNextOf(S.cur));
    ${d.lines.length>1?`<button class="btn sm danger" data-rm="${i}" style="margin-top:6px">Remove line</button>`:''}</div>`).join('')};
  lines();mrLogo().then(prev);prev();
  host.addEventListener('input',e=>{const t=e.target;if(t.dataset.f){d.lines[+t.dataset.i][t.dataset.f]=t.value}else if(t.id==='mrD')d.date=t.value;else if(t.id==='mrB')d.building=t.value;else if(t.id==='mrF')d.flat=t.value;prev()});
- host.addEventListener('click',e=>{const rm=e.target.closest('[data-rm]');if(rm){d.lines.splice(+rm.dataset.rm,1);lines();prev()}});
+ host.addEventListener('click',e=>{const rm=e.target.closest('[data-rm]');if(rm){d.lines.splice(+rm.dataset.rm,1);lines();prev()}const pr=e.target.closest('[data-phx]');if(pr){d.files.splice(+pr.dataset.phx,1);phl()}});
+ d.files=d.files||[];const phl=()=>{const L=$('#mrPhL');if(L)L.innerHTML=d.files.length?d.files.map((f,i)=>`${esc(f.name)} <a href="#" data-phx="${i}" style="color:#c00;text-decoration:none" title="Remove">✕</a>`).join(' · '):'No photos attached'};phl();
+ $('#mrPhB').onclick=()=>mrPickFiles(F2=>{d.files.push(...F2);phl()});
  $('#mrAdd').onclick=()=>{d.lines.push({});lines();prev()};$('#mrClr').onclick=()=>{mdraft=null;mrPage()};
  const doSave=async pdf=>{const L=d.lines.map(l=>{const o={};F.forEach(([k])=>o[k]=String(l[k]||'').trim());return o}).filter(l=>l.desc||l.ch);
   if(!L.length){toast('Add at least one item');return}if(!d.flat.trim()){toast('Enter the flat no');return}
   const nr=String(($('#mrR')||{}).value||'').trim();if(!/^\d+$/.test(nr)){toast('Receipt no must be a number');return}const n=+nr;
   if((S.mrcpts||[]).some(x=>x.propId===S.cur&&String(x.no)===String(n))){toast('Receipt no '+n+' already exists in this building');return}const t=(()=>{const s=Math.round(L.reduce((a,l)=>a+(+l.ch||0),0)*100)/100,v=Math.round(s*5)/100;return {sub:s,vat:v,total:Math.round((s+v)*100)/100}})();
-  const r={id:uid(),propId:S.cur,no:String(n),building:d.building.trim(),date:d.date,flat:d.flat.trim(),lines:L,...t,created:Date.now()};
+  const r={id:uid(),propId:S.cur,no:String(n),building:d.building.trim(),date:d.date,flat:d.flat.trim(),lines:L,...t,files:(d.files||[]).slice(),created:Date.now()};
   S.mrcpts=S.mrcpts||[];S.mrcpts.push(r);S.settings.mrNextB=S.settings.mrNextB||{};S.settings.mrNextB[S.cur]=Math.max(n+1,(S.mrcpts||[]).filter(x=>x.propId===S.cur).reduce((m,x)=>Math.max(m,+x.no+1||0),0));S.expenses=S.expenses||[];S.expenses.push({id:uid(),propId:r.propId,date:r.date,unit:r.flat,category:'Maintenance – General',desc:r.lines.map(l=>l.desc).join(', '),vendor:'',invNo:'Receipt '+r.no,amount:r.sub,vat:r.vat,method:'',chq:'',paidBy:'',status:'Paid',deductRC:false,files:[],mrId:r.id});
-  save();mdraft=null;render();if(pdf)await mrPDF(r);toast('Maintenance receipt '+r.no+' saved')};
+  save();mdraft=null;render();if(pdf)await mrPDF(r);toast('Maintenance receipt '+r.no+' saved');mrUploadAll(r,true)};
  $('#mrSavePdf').onclick=()=>doSave(true);$('#mrSave').onclick=()=>doSave(false)}
 let mq='';
 function mrRegRows(){const R=(S.mrcpts||[]).filter(r=>r.propId===S.cur).map(r=>({no:String(r.no),date:r.date,flat:r.flat,desc:r.lines.map(l=>l.desc).join(', '),total:+r.total||0,files:(r.files||[]).length,id:r.id}));
@@ -3156,7 +3168,7 @@ function mrRegRows(){const R=(S.mrcpts||[]).filter(r=>r.propId===S.cur).map(r=>(
 function mrRegView(){const rows=mrRegRows();
  return `<div class="bar"><input type="search" id="mqi" placeholder="Search receipt no, flat, description…" value="${esc(mq)}"><span class="hint">${rows.length} receipts · next no. ${S.settings.mrNext||1000582}</span><button class="btn" id="mrRegX">Export Excel</button><button class="btn" id="eMrI">Import receipts folder</button></div>
  <div class="tw"><table class="t"><tr><th>Receipt no</th><th>Date</th><th>Flat no</th><th>Description</th><th class="r">Total</th><th>Files</th><th></th></tr>
- ${rows.map(r=>`<tr><td>${esc(r.no)}</td><td>${fd(r.date)}</td><td>${esc(r.flat)}</td><td title="${esc(r.desc)}" style="white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</td><td class="r">${fa2(r.total)}</td><td>${r.files?'📎 '+r.files:''}</td><td style="white-space:nowrap">${r.xl?'<span class="hint">from Excel</span>':`<button class="btn sm" data-mrp="${r.id}">PDF</button> <button class="btn sm" data-mrd="${r.id}">Word</button> <button class="btn sm danger" onclick="mrDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||'<tr><td colspan=7 class="hint">No maintenance receipts yet</td></tr>'}</table></div>`}
+ ${rows.map(r=>`<tr><td>${esc(r.no)}</td><td>${fd(r.date)}</td><td>${esc(r.flat)}</td><td title="${esc(r.desc)}" style="white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</td><td class="r">${fa2(r.total)}</td><td>${r.files?'📎 '+r.files:''}</td><td style="white-space:nowrap">${r.xl?'<span class="hint">from Excel</span>':`<button class="btn sm" data-mrp="${r.id}">PDF</button> <button class="btn sm" data-mrd="${r.id}">Word</button> <button class="btn sm" onclick="mrAddPhotos('${r.id}')" title="Attach photos (also uploads to SharePoint)">📎</button> <button class="btn sm danger" onclick="mrDelete('${r.id}')">Delete</button>`}</td></tr>`).join('')||'<tr><td colspan=7 class="hint">No maintenance receipts yet</td></tr>'}</table></div>`}
 /* ================= Supplier Contracts (AMC / service contracts: dates, renewal notice, payment schedule) ================= */
 const SUP_SERV=['Lift / Elevator AMC','Fire & Life Safety AMC','AC / HVAC AMC','Chiller / District Cooling','Pest Control','Cleaning','Security / Watchman','Facility Management (FM)','Water Tank Cleaning','Swimming Pool','Building Insurance','Civil Defence / EIG','Generator','BMS / CCTV / Access Control','Waste Management','Landscaping','Internet / Telecom','Other'];
 const SUP_FREQ=[['once','One payment'],['m',"Monthly"],['q','Quarterly'],['h','Half-yearly'],['y','Yearly'],['c','Custom (type the rows)']];
@@ -3461,6 +3473,7 @@ async function spPickBld(){const pid=S.cur,pp=prop();let names=[];try{SPX.kids={
 function spUserFolder(){const st=spSt();st.users=st.users||{};return SPX.acct?st.users[(SPX.acct.username||'').toLowerCase()]||'':''}
 function spSegs(o){const p=S.properties.find(x=>x.id===o.propId)||{},b=p.short||p.no||o.propId,U={label:spUserFolder(),tokens:[],bld:o.propId},B0={label:'Building '+b,tokens:[String(b)]};const B=[U,B0];
  if(o.area==='tenant')return [...B,{label:'Tenants',tokens:['tenant']},{label:spClean(o.unit+' - '+(o.tenant||'')),tokens:[String(o.unit)]},{label:o.sub,tokens:[]}];
+ if(o.area==='mrinv'){const fl=String(o.flat||'GENERAL MAINTENANCE').trim().toUpperCase();return [...B,{label:'MAINTENANCE INVOICE',tokens:['maintenance','invoice']},{label:spClean(fl),tokens:spNorm(fl).split(' ').filter(Boolean)},{label:String(o.no),tokens:[String(o.no)]}]}
  if(o.area==='maint')return [...B,{label:'Maintenance',tokens:['maintenance']},{label:spClean(o.supplier||'General'),tokens:spNorm(o.supplier||'general').split(' ').slice(0,2)}];
  if(o.area==='exp'){const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],FM=['january','february','march','april','may','june','july','august','september','october','november','december'],d=String(o.date||todayISO()),y=d.slice(0,4),m=+d.slice(5,7)-1,mn=MN[m].toLowerCase();
   return [...B,{label:'Expenses for Building',tokens:['expenses','building']},{label:MN[m],tokens:[mn,y],tries:[[FM[m],y],[mn],[FM[m]]]}]}
