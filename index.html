@@ -2777,10 +2777,57 @@ const STARS='*********';
 // Balance runs only on our charges (debits); rent received shows stars and is never totalled
 const stmtStep=(bal,e)=>(+e.debit||0)>0?Math.round((bal-(+e.debit||0))*100)/100:bal;
 let sf='',st=null,sq='';
+/* Rent Collection: import the office Rent Collection Excel (every year sheet) — from SharePoint or this computer. Adds missing lines, never deletes */
+function rcImportStart(){const p=prop(),o=modal(`<h3>Import Rent Collection Excel — ${esc(p.short||p.no)}</h3><p class="hint">Reads every year sheet of the office Rent Collection workbook and adds the lines the app doesn't have yet (with their management fee lines). Nothing in the app is deleted or changed without showing you first.</p>
+ <div class="grid g2" style="margin-top:10px"><button class="btn pri" id="riSp" ${spOn()?'':'disabled title="Connect SharePoint in Settings first"'}>From SharePoint</button><button class="btn" id="riPc">From this computer</button></div><div id="riL" class="hint" style="margin-top:10px"></div>`,null);
+ $('#riPc',o).onclick=()=>{const i=document.createElement('input');i.type='file';i.accept='.xlsx,.xls';i.onchange=()=>{const f=i.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{o.remove();rcImportWb(XLSX.read(rd.result,{type:'array'}),f.name)};rd.readAsArrayBuffer(f)};i.click()};
+ $('#riSp',o).onclick=async()=>{const L=$('#riL',o);L.textContent='Searching SharePoint…';try{const q=String(p.short||p.no).replace(/^P[-/]/i,'')+' rent collection';
+   let r=await gf("/drives/"+SPX.drive+"/root/search(q='"+encodeURIComponent(q)+"')?$top=100");let F=((r&&r.value)||[]).filter(f=>f.file&&/\.xlsx$/i.test(f.name));
+   if(!F.length){r=await gf("/drives/"+SPX.drive+"/root/search(q='"+encodeURIComponent('rent collection')+"')?$top=200");F=((r&&r.value)||[]).filter(f=>f.file&&/\.xlsx$/i.test(f.name))}
+   L.innerHTML=F.length?`<div class="tw"><table class="t"><tr><th>File</th><th>Folder</th><th>Modified</th><th></th></tr>${F.map((f,i)=>`<tr><td>${esc(f.name)}</td><td class="hint">${esc(decodeURIComponent(((f.parentReference||{}).path||'').replace(/^\/drives\/[^/]+\/root:?/,'')))}</td><td>${fd(String(f.lastModifiedDateTime||'').slice(0,10))}</td><td><button class="btn sm pri" data-ri="${i}">Use this</button></td></tr>`).join('')}</table></div>`:'No Rent Collection Excel found in SharePoint.';
+   L.onclick=async e=>{const b=e.target.closest('[data-ri]');if(!b)return;const f=F[+b.dataset.ri];L.textContent='Reading '+f.name+'…';
+    try{const tk=await spToken(),res=await fetch('https://graph.microsoft.com/v1.0/drives/'+SPX.drive+'/items/'+f.id+'/content',{headers:{Authorization:'Bearer '+tk}});if(!res.ok)throw new Error('SharePoint '+res.status);
+     o.remove();rcImportWb(XLSX.read(await res.arrayBuffer(),{type:'array'}),f.name)}catch(err){console.error(err);L.textContent='Could not read the file: '+(err.message||err)}}}
+  catch(err){console.error(err);L.textContent='SharePoint search failed: '+(err.message||err)}}}
+function rcParseWb(wb){const out=[],T=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),N=v=>v===''||v==null?0:(+String(v).replace(/,/g,'')||0);let pno='';
+ wb.SheetNames.forEach(sn=>{const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});const hi=a.findIndex(r=>/^date$/i.test(T(r[0]))&&/description/i.test(T(r[1])));if(hi<0)return;
+  a.slice(0,hi).forEach(r=>{if(/property\s*#/i.test(T(r[0]))&&!pno)pno=T(r[1])});
+  const H=a[hi].map(x=>T(x).toLowerCase()),ci=n=>H.findIndex(h=>h.startsWith(n)),cT=ci('tenant'),cU=ci('unit'),cM=ci('payment'),cC=ci('chq'),cD=ci('debit'),cR=ci('credit');
+  const yS=/^\d{4}$/.test(T(sn))?T(sn):'';let lastDate='';
+  a.slice(hi+1).forEach(r=>{const desc=T(r[1]);if(!desc||/opening balance|closing balance/i.test(desc)||/closing balance/i.test(T(r[cT])))return;const deb=N(r[cD]),cr=N(r[cR]);if(!deb&&!cr)return;
+   let d=r[0],date='';if(typeof d==='number')date=toISO(d);else{const s=T(d),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{1,4})$/);if(m){let y=m[3];if(y.length!==4||+y<2015||+y>2035)y=yS||String(lastDate).slice(0,4);date=y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')}else date=toISO(s)}
+   if(!date)date=lastDate;if(!date)return;if(yS&&date.slice(0,4)!==yS&&lastDate&&lastDate.slice(0,4)===yS&&Math.abs(+date.slice(0,4)-+yS)>=1)date=yS+date.slice(4);lastDate=date;
+   let ten=T(r[cT]),unit=T(r[cU]);const fm=ten.match(/^Flat no:\s*(.+)$/i);if(fm&&!unit){unit=fm[1].trim();ten=''}
+   let meth=T(r[cM]).toLowerCase();meth=/transfer|bank/.test(meth)?'Bank Transfer':/cheque|check|chq/.test(meth)?'Cheque':/card/.test(meth)?'Card':meth?'Cash':'';
+   out.push({sheet:sn,date,desc,tenant:ten,unit,method:meth,chq:T(r[cC]),debit:Math.round(deb*100)/100,credit:Math.round(cr*100)/100,fee:/management fee/i.test(desc)})})});
+ return {pno,L:out}}
+function rcImportWb(wb,fname){const pid=S.cur,p=prop(),bno=String(p.short||p.no||'').replace(/^P[-/]/i,'');const {pno,L}=rcParseWb(wb);
+ if(!L.length){toast('No Rent Collection lines found in this Excel');return}
+ const bad=pno&&String(pno).replace(/^P[-/]/i,'').replace(/\s*\(.*$/,'').trim()!==bno;
+ // group: rent/income line + its following fee line
+ const G=[];L.forEach(x=>{if(x.fee&&G.length&&!G[G.length-1].fee&&G[G.length-1].rent)G[G.length-1].fee=x;else if(x.fee)G.push({fee:x,lone:true});else G.push({rent:x})});
+ const E=(S.stmt.entries||[]).filter(e=>e.propId===pid),R=E.filter(e=>e.kind!=='fee'),used=new Set(),U=v=>String(v||'').trim().toUpperCase(),days=(a,b)=>Math.abs((new Date(a)-new Date(b))/864e5);
+ const add=[],same=[],fix=[];
+ G.forEach(g=>{if(!g.rent){add.push(g);return}const x=g.rent;
+  let m=R.find(e=>!used.has(e.id)&&U(e.unit)===U(x.unit)&&Math.abs(+e.credit-x.credit)<.01&&e.date===x.date)||R.find(e=>!used.has(e.id)&&U(e.unit)===U(x.unit)&&Math.abs(+e.credit-x.credit)<.01&&days(e.date,x.date)<=35);
+  if(m){used.add(m.id);if(m.date!==x.date||m.desc!==x.desc)fix.push([m,g]);else same.push(m)}else add.push(g)});
+ const extra=R.filter(e=>!used.has(e.id)&&e.date>=(L.map(x=>x.date).sort()[0]||'')&&e.date<=(L.map(x=>x.date).sort().slice(-1)[0]||''));
+ const yrs=[...new Set(L.map(x=>x.sheet))].join(', '),sum=a=>a.reduce((s,g)=>s+(g.rent?g.rent.credit:0),0);
+ const o=modal(`<h3>Import Rent Collection — ${esc(p.short||p.no)}</h3><p class="hint">${esc(fname||'')} · sheets: ${esc(yrs)}</p>
+  ${bad?`<div style="margin:10px 0;padding:10px;border-radius:8px;background:#fdecea;color:#8a1c1c"><b>This Excel is for property ${esc(pno)}, not ${esc(bno)}.</b> Open the right building first. Nothing will be imported.</div>`:''}
+  <p style="margin:10px 0"><b>${G.filter(g=>g.rent).length}</b> income lines in the Excel · <b>${same.length}</b> already in the app · <b style="color:var(--green,#1a7f37)">${add.filter(g=>g.rent).length} to add (AED ${fa2(sum(add))})</b> · <b>${fix.length}</b> to align (date / wording)${extra.length?` · <b style="color:#b45309">${extra.length} in the app but not in the Excel</b> (left as they are)`:''}</p>
+  ${add.length?`<div class="tw" style="max-height:280px;overflow:auto"><table class="t"><tr><th>Date</th><th>Description</th><th>Tenant</th><th>Unit</th><th class="r">Credit</th><th class="r">Fee</th></tr>${add.map(g=>{const x=g.rent||g.fee;return `<tr><td>${fd(x.date)}</td><td>${esc(x.desc)}</td><td>${esc(x.tenant)}</td><td>${esc(x.unit)}</td><td class="r">${g.rent?fa2(x.credit):''}</td><td class="r">${g.fee?fa2(g.fee.debit):''}</td></tr>`}).join('')}</table></div>`:''}
+  ${extra.length?`<details style="margin-top:8px"><summary class="hint">Show the ${extra.length} app lines not found in the Excel</summary><div class="tw" style="max-height:200px;overflow:auto"><table class="t">${extra.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.unit)}</td><td>${esc(e.tenant)}</td><td>${esc(e.desc)}</td><td class="r">${fa2(e.credit)}</td></tr>`).join('')}</table></div></details>`:''}`,
+  bad||(!add.length&&!fix.length)?null:()=>{S.stmt.entries=S.stmt.entries||[];
+   fix.forEach(([m,g])=>{m.date=g.rent.date;m.desc=g.rent.desc;S.stmt.entries.filter(e=>e.grp===m.grp&&e.kind==='fee').forEach(f=>{f.date=g.rent.date})});
+   add.forEach(g=>{const grp=uid(),x=g.rent||g.fee,base={propId:pid,grp,date:x.date,tenant:g.rent?x.tenant:'',unit:g.rent?x.unit:'',method:x.method||'',chq:x.chq||'',receiptNo:'',src:'rcimp'};
+    if(g.rent)S.stmt.entries.push({...base,id:uid(),kind:'rent',desc:x.desc,debit:0,credit:x.credit});
+    if(g.fee)S.stmt.entries.push({...base,id:uid(),kind:'fee',desc:g.fee.desc,debit:g.fee.debit,credit:0})});
+   actLog('Rent Collection Excel imported ('+(fname||'')+'): '+add.length+' added, '+fix.length+' aligned',pid);save();render();toast(add.length+' lines added, '+fix.length+' aligned')},'Import');$('.modal',o).style.width='min(1000px,100%)'}
 function vStmt(){
  if(st===null)st=todayISO(); // Rent Collection shows entries up to today by default (future cheque instalments appear on their date)
  const p=prop();
- $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" onclick="rcMissingDlg()">Check missing cheques</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sExp">Export Excel</button>`)+`
+ $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" onclick="rcMissingDlg()">Check missing cheques</button><button class="btn" onclick="rcImportStart()">Import Excel</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sExp">Export Excel</button>`)+`
  <div class="bar"><div style="flex:1 1 260px"><label for="sqi">Search</label><input type="search" id="sqi" value="${esc(sq)}" placeholder="Tenant, unit, description, cheque no, receipt…"></div><div><label>From</label><input type="date" id="sfi" value="${sf}" style="width:auto"></div><div><label>To</label><input type="date" id="sti" value="${st}" style="width:auto"></div><span class="hint" style="align-self:flex-end;padding-bottom:10px">Leave empty for everything. Applies to the table and the Excel export.</span></div>
  <div class="stats" id="sSum"></div><div class="tw"><table class="t" id="stt"></table></div>
  <p class="hint">Rent recorded on a receipt (description “Rent”) is added here automatically with the management fee. Fee: <b>${esc(feeDesc())}</b> — change it in Settings.</p>`;
