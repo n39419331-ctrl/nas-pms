@@ -1697,7 +1697,9 @@ const pdcIsNew=c=>!c.pdcOld&&!c.src;
 setTimeout(function pdcOldMark(){S.settings=S.settings||{};if(!S.settings.pdcOldMark){(S.cheques||[]).forEach(c=>c.pdcOld=1);S.settings.pdcOldMark=1;save()}
  const o=save;save=function(){try{(S.cheques||[]).forEach(c=>{if(pdcIsNew(c)&&!c.addedAt)c.addedAt=Date.now()})}catch(_){}return o.apply(this,arguments)}},0);
 function pdcGroups(C,tail){if(!tail)return pdcGroups0(C);const U=units(S.cur),N=C.filter(pdcIsNew).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));
- return pdcGroups0(C.filter(c=>!pdcIsNew(c))).concat(N.map(c=>{const u=U.find(x=>String(x.unit).toUpperCase()===String(c.unit||'').toUpperCase())||{};return {u,unit:String(c.unit||''),k:chqContract(c,u),tenant:c.payer||u.tenant||'',L:[c]}}))}
+ return pdcGroups0(C.filter(c=>!pdcIsNew(c))).concat(pdcTailJoin(N.map(c=>{const u=U.find(x=>String(x.unit).toUpperCase()===String(c.unit||'').toUpperCase())||{};return {u,unit:String(c.unit||''),k:chqContract(c,u),tenant:c.payer||u.tenant||'',L:[c]}}),'tenant'))}
+/* new cheques at the bottom: back-to-back cheques of the same unit + tenant + contract share one merged block (like the old blocks) */
+function pdcTailJoin(A,tk){const out=[],K=g=>[String(g.unit).toUpperCase(),String(g[tk]||'').trim().toUpperCase(),g.k&&g.k.start||'',g.k&&g.k.amt||''].join('|');A.forEach(g=>{const l=out[out.length-1];if(l&&K(l)===K(g))l.L.push(...g.L);else out.push(g)});return out}
 function pdcGroups0(C){const pid=S.cur,U=units(pid),ord=new Map(U.map((u,i)=>[String(u.unit),i])),G=new Map();
  C.forEach(c=>{const u=U.find(x=>String(x.unit)===String(c.unit))||{},k=chqContract(c,u),key=String(c.unit||'')+'|'+k.start;if(!G.has(key))G.set(key,{u,unit:String(c.unit||''),k,tenant:u.tenant||c.payer||'',L:[]});G.get(key).L.push(c)});
  // one block per unit: all payments together under the earliest (previous) contract's details
@@ -3778,7 +3780,7 @@ async function ownBuild(pid,k,arg){const M=ownMeta(pid,k);const {z}=await ownSou
  else if(k==='pdc'){const sh=SH.find(s=>s.name===M.sheet)||SH[SH.length-1];let x=await z.file(sh.path).async('string'),r=M.keep+1;const rows=[],mg=[],U=units(pid);
   const eom=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10)})();
   const G=new Map(),NEWC=(arg||[]).filter(pdcIsNew).sort((a,b)=>(a.addedAt||0)-(b.addedAt||0));(arg||[]).filter(c=>!pdcIsNew(c)).forEach(c=>{const u=U.find(x=>String(x.unit)===String(c.unit))||{},k2=chqContract(c,u),key=String(c.unit).toUpperCase()+'|'+(k2.start||'');if(!G.has(key))G.set(key,{u,k:k2,unit:String(c.unit||''),ten:c.payer||u.tenant||'',L:[]});G.get(key).L.push(c)});
-  [...G.values()].concat(NEWC.map(c=>{const u=U.find(x=>String(x.unit).toUpperCase()===String(c.unit||'').toUpperCase())||{};return {u,k:chqContract(c,u),unit:String(c.unit||''),ten:c.payer||u.tenant||'',L:[c]}})).forEach(g=>{g.L.sort((a,b)=>String(a.chqDate).localeCompare(String(b.chqDate)));const r0=r,n=g.L.length,u=g.u;
+  [...G.values()].concat(pdcTailJoin(NEWC.map(c=>{const u=U.find(x=>String(x.unit).toUpperCase()===String(c.unit||'').toUpperCase())||{};return {u,k:chqContract(c,u),unit:String(c.unit||''),ten:c.payer||u.tenant||'',L:[c]}}),'ten')).forEach(g=>{g.L.sort((a,b)=>String(a.chqDate).localeCompare(String(b.chqDate)));const r0=r,n=g.L.length,u=g.u;
    g.L.forEach((c,i)=>{const B=i===0?M.top:i===n-1?M.bot:M.mid,cl=/Cleared|Deposited/.test(c.status),del=c.status==='Deleted',hold=/hold/i.test(c.notice||''),cat=del?'blue':cl?'green':(hold||(String(c.chqDate)<=eom&&String(c.chqDate)>eom.slice(0,8)+'00'))?'yellow':'white',K=M.st[cat];
     const stx=del?'DELETED':cl?'collected':hold?'HOLD':'',shop=/SH$/i.test(g.unit);let s='';
     if(i===0)s+=cS('A'+r,B.A,M.portfolio)+cS('B'+r,B.B,M.ll)+cN('C'+r,B.C,+bldNo(pid))+cA('D'+r,B.D,g.unit)+cS('E'+r,B.E,u.type||'')+cS('F'+r,B.F,u.status||'Occupied')+cS('G'+r,B.G,shop?'Commercial':'Residential')+cN('H'+r,B.H,u.sqm)+cS('I'+r,B.I,g.ten)+cN('J'+r,B.J,g.k.amt)+cS('K'+r,B.K,ownTxt2(g.k.start))+cS('L'+r,B.L,ownTxt2(g.k.end));
@@ -3797,7 +3799,7 @@ const pdcCheques=pid=>(S.cheques||[]).filter(c=>c.propId===pid&&(c.method||'Cheq
 /* PDC Excel: a cheque deleted in the app keeps its line in the Excel, marked DELETED (the Excel is the record) */
 const pdcChequesX=pid=>{S.settings=S.settings||{};const all=S.settings.pdcSeen=S.settings.pdcSeen||{},seen=all[pid]=all[pid]||{},C=pdcCheques(pid),ids=new Set((S.cheques||[]).map(c=>c.id));let ch=false;
  C.forEach(c=>{const {files,depFiles,...k}=c,j=JSON.stringify(k);if(JSON.stringify(seen[c.id])!==j){seen[c.id]=JSON.parse(j);ch=true}});
- const G=Object.values(seen).filter(c=>c&&!ids.has(c.id)).map(c=>({...c,status:'Deleted',ghost:1}));if(ch)setTimeout(()=>{try{save()}catch(_){}},0);return C.concat(G)};
+ Object.keys(seen).forEach(id=>{if(!ids.has(id)){delete seen[id];ch=true}});const G=[];/* deleted cheque = removed from the Excel */if(ch)setTimeout(()=>{try{save()}catch(_){}},0);return C.concat(G)};
 const xlFp=(pid,k)=>{const p=S.properties.find(x=>x.id===pid)||{};
  if(k==='pdc')return JSON.stringify([pdcCheques(pid).map(c=>[c.id,c.pcdSheet,c.chqNo,c.amount,c.chqDate,c.status,c.unit,c.payer,c.bank,c.depositDate,c.clearedDate,c.receiptNo,c.note,c.bounced,c.bouncePaid,c.notice]),(S.units[pid]||[]).map(u=>[u.unit,u.tenant,u.start,u.end,u.tawthiq,u.status,u.phone,u.deposit])]);
  if(k==='rc')return JSON.stringify((S.stmt&&S.stmt.entries||[]).filter(e=>e.propId===pid));
