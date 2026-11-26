@@ -1247,7 +1247,7 @@ function unitHasParking(pid,u){if(!u||u.status==='Vacant'||!u.tenant)return fals
 function vUnits(){
   const p=prop(),U=units();
   $('#main').innerHTML=topbar('Property List Report (LandLord)',
-   `<button class="btn" id="bImp">Import Excel</button><button class="btn" id="bCopy" title="Copies every unit row, in the same column order as the Excel, ready to paste at A17">Copy for Excel</button><button class="btn" id="bExp">Export Excel</button><select id="pp" style="width:auto;min-width:0"><option value="A3" ${S.settings.listPaper!=='A4'?'selected':''}>A3</option><option value="A4" ${S.settings.listPaper==='A4'?'selected':''}>A4</option></select><button class="btn" id="bPrn">Print</button><button class="btn" id="bPdf">Export PDF</button><input type="file" id="fImp" accept=".xlsx,.xls,.csv" style="display:none">`)+`
+   `<button class="btn" id="bImp">Import Excel</button><button class="btn" id="bExp">Export Excel</button><select id="pp" style="width:auto;min-width:0"><option value="A3" ${S.settings.listPaper!=='A4'?'selected':''}>A3</option><option value="A4" ${S.settings.listPaper==='A4'?'selected':''}>A4</option></select><button class="btn" id="bPrn">Print</button><button class="btn" id="bPdf">Export PDF</button><input type="file" id="fImp" accept=".xlsx,.xls,.csv" style="display:none">`)+`
   <div class="card"><div style="display:flex;gap:14px;justify-content:space-between;flex-wrap:wrap">
    <div class="hdrinfo"><span>Property #</span><b>${esc(p.no)}</b><span>Landlord Name</span><b>${esc(p.landlord)}</b><span>Residential Units</span><b>${esc(p.resUnits)}</b><span>Commercial Units</span><b>${esc(p.comUnits)}</b><span>Location</span><b>${esc(p.location)}</b></div>
    ${p.image?`<img class="pimg" src="${p.image}" alt="">`:''}
@@ -1270,7 +1270,7 @@ function vUnits(){
   $('#q').oninput=e=>{uq=e.target.value;draw()};$('#fs').onchange=e=>{us=e.target.value;draw()};
   $('#ut').onclick=e=>{const b=e.target.closest('[data-e]');if(b)unitForm(+b.dataset.e)};
   $('#bAU').onclick=()=>unitForm(-1);$('#bEP').onclick=()=>propForm(p);$('#bNP').onclick=()=>propForm(null);
-  $('#bExp').onclick=exportList;$('#bCopy').onclick=copyListRows;$('#bPrn').onclick=printList;$('#bPdf').onclick=pdfList;
+  $('#bExp').onclick=exportList;($('#bCopy')||{}).onclick=copyListRows;$('#bPrn').onclick=printList;$('#bPdf').onclick=pdfList;
   $('#bImp').onclick=()=>$('#fImp').click();$('#fImp').onchange=e=>{if(e.target.files[0])importList(e.target.files[0])};
 }
 function unitForm(i){
@@ -1643,11 +1643,11 @@ function rcptFiles(r){
 function rReg(){
   const R=S.receipts.filter(r=>r.propId===S.cur).slice().reverse(),q=rq.toLowerCase();
   const rows=R.filter(r=>!q||[r.no,r.unit,r.payer].join(' ').toLowerCase().includes(q));
-  $('#main').insertAdjacentHTML('beforeend',`<div class="bar"><input type="search" id="rqi" placeholder="Search receipt no, unit, payer…" value="${esc(rq)}"><span class="hint">${rows.length} receipts</span><button class="btn" id="rCopy">Copy for Excel</button></div>
+  $('#main').insertAdjacentHTML('beforeend',`<div class="bar"><input type="search" id="rqi" placeholder="Search receipt no, unit, payer…" value="${esc(rq)}"><span class="hint">${rows.length} receipts</span></div>
   <div class="tw"><table class="t"><tr><th>Receipt no</th><th>Date</th><th>Unit</th><th>Payer</th><th>Description</th><th>Mode</th><th class="r">Total</th><th>Files</th><th></th></tr>
   ${rows.map(r=>`<tr><td>${esc(r.no)}</td><td>${fd(r.date)}</td><td>${esc(r.unit)}</td><td>${esc(r.payer)}</td><td title="${esc(r.lines.map(l=>l.desc).join(', '))}" style="white-space:nowrap;max-width:125px;overflow:hidden;text-overflow:ellipsis">${esc(shortDesc(r))}</td><td>${esc([...new Set(r.lines.map(l=>l.mode))].join(', '))}</td><td class="r">${fa(r.lines.reduce((a,l)=>a+l.amount,0))}</td><td><button class="btn sm" data-att="${r.id}">📎 ${(r.chqFiles||[]).length||'Add'}</button></td>
   <td>${r.void?'<span class="tag red">VOID</span>':`<button class="btn sm" data-vw="${r.id}">View</button> <button class="btn sm" data-p="${r.id}">Print</button> <button class="btn sm" data-pdf="${r.id}">PDF</button> <button class="btn sm" data-ed="${r.id}">Edit</button> <button class="btn sm" data-cpy="${r.id}" title="New receipt with the same details">Copy</button> ${parkDoc(r)?`<button class="btn sm" data-pk="${r.id}">Parking contract</button> `:''}<button class="btn sm" data-v="${r.id}">Void</button>`} <button class="btn sm danger" data-del="${r.id}">Delete</button></td></tr>`).join('')||'<tr><td colspan=9 class="hint">No receipts yet</td></tr>'}</table></div>`);
-  $('#rCopy').onclick=()=>copyReceipts(rows);
+  ($('#rCopy')||{}).onclick=()=>copyReceipts(rows);
   $('#rqi').oninput=e=>{rq=e.target.value;const ps=e.target.selectionStart;vRcpt();const n=$('#rqi');if(n){n.focus();try{n.setSelectionRange(ps,ps)}catch(_){}}};
   $('.tw').onclick=e=>{const b=e.target.closest('button');if(!b)return;
     if(b.dataset.att){rcptFiles(S.receipts.find(x=>x.id===b.dataset.att));return}
@@ -1798,7 +1798,7 @@ function chqScanAttach(){const o=modal(`<h3>Attach cheque scans</h3><p class="hi
 function chqWaText(C){const p=prop();C=C.filter(c=>!c.virtual).slice().sort((a,b)=>String(a.unit).localeCompare(String(b.unit),undefined,{numeric:true})||String(a.chqDate).localeCompare(String(b.chqDate)));
  return ['*Cheques – '+(p.short||p.no)+'* ('+C.length+')',...C.map(c=>c.unit+' | '+c.chqNo+' | '+fd(c.chqDate)+' | '+fa(c.amount)+' | '+c.status),'Total: AED '+fa(C.reduce((a,c)=>a+(+c.amount||0),0))].join('\n')}
 function vChq(){
-  $('#main').innerHTML=topbar('Unit Status & Payment Schedule',`<button class="btn pri" id="cAdd">+ Add cheque</button><button class="btn" id="cDep">Deposit slip</button><button class="btn" id="cScan">Attach scans</button><button class="btn" id="cWa">WhatsApp</button><button class="btn" id="cCopy">Copy for Excel</button><button class="btn" id="cExp">Export Excel</button><button class="btn" id="cPrn">Print</button>`)+chqUpcoming()+`
+  $('#main').innerHTML=topbar('Unit Status & Payment Schedule',`<button class="btn pri" id="cAdd">+ Add cheque</button><button class="btn" id="cDep">Deposit slip</button><button class="btn" id="cScan">Attach scans</button><button class="btn" id="cWa">WhatsApp</button><button class="btn" id="cExp">Export Excel</button><button class="btn" id="cPrn">Print</button>`)+chqUpcoming()+`
   <div class="bar"><input type="search" id="cqi" placeholder="Search cheque no, unit, payer…" value="${esc(cq)}"><select id="cfs"><option value="">All status</option><option value="Overdue" ${cs==='Overdue'?'selected':''}>Overdue (date passed, not deposited)</option>${CHQ_STATUS.map(s=>`<option ${s===cs?'selected':''}>${s}</option>`).join('')}</select><span class="hint" id="cc"></span></div>
   <div class="tw"><table class="t pdc" id="ct" style="border-collapse:collapse;font-size:12px"></table></div><p class="hint">Same layout as your “Property Unit Status and Tenant Payment Schedule” — one block per tenant contract. Cheques and first payments on receipts are added here automatically. Search and status filter also apply to Copy and Export.</p>`;
   bindTop();
@@ -1824,7 +1824,7 @@ function vChq(){
   $('#ct').onclick=e=>{const ds=e.target.closest('[data-ds]');if(ds){const c=S.cheques.find(x=>x.id===ds.dataset.ds);(c.depFiles||[]).forEach(id=>openFile(id,false));return}const f=e.target.closest('[data-cf]');if(f){chqFilesDlg(S.cheques.find(x=>x.id===f.dataset.cf));return}const b=e.target.closest('[data-e]');if(b)chqForm(S.cheques.find(x=>x.id===b.dataset.e))};
   $('#cAdd').onclick=()=>chqForm(null);$('#cDep').onclick=depositSlip;$('#cScan').onclick=chqScanAttach;$('#cPrn').onclick=printChq;
   $('#cExp').onclick=()=>exportPDC(chqFiltered());
-  $('#cCopy').onclick=()=>copyPDC(chqFiltered());$('#cWa').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(chqWaText(chqFiltered())),'_blank','noopener');
+  ($('#cCopy')||{}).onclick=()=>copyPDC(chqFiltered());$('#cWa').onclick=()=>window.open('https://wa.me/?text='+encodeURIComponent(chqWaText(chqFiltered())),'_blank','noopener');
 }
 async function copyPDC(C){const G=pdcGroups(C);if(!G.length){toast('No cheques to copy');return}
  // same columns as the office PDC sheet: A LL Name … N Cheque No. · O Cheque Date · P Bank … U Security Deposit (21 columns, no Portfolio column)
@@ -2775,7 +2775,7 @@ let sf='',st=null,sq='';
 function vStmt(){
  if(st===null)st=todayISO(); // Rent Collection shows entries up to today by default (future cheque instalments appear on their date)
  const p=prop();
- $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" onclick="rcMissingDlg()">Check missing cheques</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sCopy">Copy for Excel</button><button class="btn" id="sExp">Export Excel</button>`)+`
+ $('#main').innerHTML=topbar('Rent Collection',`<button class="btn pri" id="sAdd">+ Add income</button><button class="btn" onclick="rcMissingDlg()">Check missing cheques</button><button class="btn" id="sOpen">Opening balance</button><button class="btn" id="sPrn">Print (A4)</button><button class="btn" id="sPdf">Export PDF</button><button class="btn" id="sExp">Export Excel</button>`)+`
  <div class="bar"><div style="flex:1 1 260px"><label for="sqi">Search</label><input type="search" id="sqi" value="${esc(sq)}" placeholder="Tenant, unit, description, cheque no, receipt…"></div><div><label>From</label><input type="date" id="sfi" value="${sf}" style="width:auto"></div><div><label>To</label><input type="date" id="sti" value="${st}" style="width:auto"></div><span class="hint" style="align-self:flex-end;padding-bottom:10px">Leave empty for everything. Applies to the table and the Excel export.</span></div>
  <div class="stats" id="sSum"></div><div class="tw"><table class="t" id="stt"></table></div>
  <p class="hint">Rent recorded on a receipt (description “Rent”) is added here automatically with the management fee. Fee: <b>${esc(feeDesc())}</b> — change it in Settings.</p>`;
@@ -2796,7 +2796,7 @@ function vStmt(){
    if(confirm('Delete this entry'+(sib?' and its management fee':'')+'?')){S.stmt.entries=S.stmt.entries.filter(x=>x.id===en.id?false:!(sib&&x.grp===en.grp));save();render()}}};
  $('#sAdd').onclick=()=>stmtForm(null);
  $('#sExp').onclick=()=>exportStatement(sf,st);
- $('#sCopy').onclick=()=>copyStatement(sf,st);
+ ($('#sCopy')||{}).onclick=()=>copyStatement(sf,st);
  $('#sPrn').onclick=()=>{const r=stmtPages(sf,st);printHTML(r.pages.join(''),r.page)};
  $('#sPdf').onclick=()=>pdfStmt(sf,st);
  $('#sOpen').onclick=()=>modal(`<h3>Opening balance</h3><label>Opening balance (AED) — ${esc(p.no)}</label><input id="ob" type="number" step="0.01" value="${stmtOpen(p.id)}"><p class="hint">Shown on the OPENING BALANCE line. Leave 0 to start from zero.</p>`,ov=>{S.stmt.open=S.stmt.open||{};S.stmt.open[p.id]=+$('#ob',ov).value||0;save();render()});
@@ -3083,7 +3083,7 @@ function mrRegRows(){const R=(S.mrcpts||[]).filter(r=>r.propId===S.cur).map(r=>(
  const have=new Set(R.map(r=>r.no));(S.expenses||[]).filter(e=>e.propId===S.cur&&!e.mrId&&e.mrNo&&!have.has(String(e.mrNo))).forEach(e=>R.push({no:String(e.mrNo),date:e.date,flat:e.unit,desc:e.xlDesc||e.desc,total:expTotal(e),files:(e.files||[]).length,xl:1}));
  const q=mq.toLowerCase();return R.filter(r=>!q||[r.no,r.flat,r.desc].join(' ').toLowerCase().includes(q)).sort((a,b)=>(+b.no)-(+a.no))}
 function mrRegView(){const rows=mrRegRows();
- return `<div class="bar"><input type="search" id="mqi" placeholder="Search receipt no, flat, description…" value="${esc(mq)}"><span class="hint">${rows.length} receipts · next no. ${S.settings.mrNext||1000582}</span><button class="btn" id="mCopy">Copy for Excel</button><button class="btn" id="mrRegX">Export Excel</button><button class="btn" id="eMrI">Import receipts folder</button></div>
+ return `<div class="bar"><input type="search" id="mqi" placeholder="Search receipt no, flat, description…" value="${esc(mq)}"><span class="hint">${rows.length} receipts · next no. ${S.settings.mrNext||1000582}</span><button class="btn" id="mrRegX">Export Excel</button><button class="btn" id="eMrI">Import receipts folder</button></div>
  <div class="tw"><table class="t"><tr><th>Receipt no</th><th>Date</th><th>Flat no</th><th>Description</th><th class="r">Total</th><th>Files</th><th></th></tr>
  ${rows.map(r=>`<tr><td>${esc(r.no)}</td><td>${fd(r.date)}</td><td>${esc(r.flat)}</td><td title="${esc(r.desc)}" style="white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(r.desc)}</td><td class="r">${fa2(r.total)}</td><td>${r.files?'📎 '+r.files:''}</td><td style="white-space:nowrap">${r.xl?'<span class="hint">from Excel</span>':`<button class="btn sm" data-mrp="${r.id}">PDF</button> <button class="btn sm" data-mrd="${r.id}">Word</button>`}</td></tr>`).join('')||'<tr><td colspan=7 class="hint">No maintenance receipts yet</td></tr>'}</table></div>`}
 /* ================= Supplier Contracts (AMC / service contracts: dates, renewal notice, payment schedule) ================= */
@@ -3193,7 +3193,7 @@ async function supExport(L){if(!L.length){toast('No contracts to export');return
   XLSX.utils.book_append_sheet(wb,a,'Contracts');XLSX.utils.book_append_sheet(wb,b,'Payments');const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   const bl=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),x=document.createElement('a');x.href=URL.createObjectURL(bl);x.download='Supplier_Contracts_'+fd(todayISO()).replace(/\//g,'.')+'.xlsx';document.body.appendChild(x);x.click();setTimeout(()=>{x.remove();URL.revokeObjectURL(x.href)},1500);toast('Excel exported')}catch(e){console.error(e);toast('Could not create the Excel file')}}
 let mview='new';
-function vMrc(){$('#main').innerHTML=topbar('Maintenance Receipt',`<button class="btn ${mview==='new'?'pri':''}" id="mN">New receipt</button><button class="btn ${mview==='reg'?'pri':''}" id="mR">Register</button>`)+(mview==='new'?`<div class="card" id="mrHost"></div>`:mrRegView());bindTop();$('#mN').onclick=()=>{mview='new';vMrc()};$('#mR').onclick=()=>{mview='reg';vMrc()};if(mview==='new')mrPage();else{$('#eMrI').onclick=mrImport;$('#mrRegX').onclick=()=>exportExp(mrRegList());$('#mqi').oninput=e=>{mq=e.target.value;const ps=e.target.selectionStart;vMrc();const n=$('#mqi');if(n){n.focus();try{n.setSelectionRange(ps,ps)}catch(_){}}};$('#mCopy').onclick=async()=>{const R=mrRegRows(),t=R.map(r=>[r.no,fd(r.date),r.flat,r.desc,r.total].join('\t')).join('\n');try{await navigator.clipboard.writeText(t);toast(R.length+' receipts copied — paste in Excel (Ctrl+V)')}catch(_){toast('Your browser blocked copying — use Export Excel')}}}
+function vMrc(){$('#main').innerHTML=topbar('Maintenance Receipt',`<button class="btn ${mview==='new'?'pri':''}" id="mN">New receipt</button><button class="btn ${mview==='reg'?'pri':''}" id="mR">Register</button>`)+(mview==='new'?`<div class="card" id="mrHost"></div>`:mrRegView());bindTop();$('#mN').onclick=()=>{mview='new';vMrc()};$('#mR').onclick=()=>{mview='reg';vMrc()};if(mview==='new')mrPage();else{$('#eMrI').onclick=mrImport;$('#mrRegX').onclick=()=>exportExp(mrRegList());$('#mqi').oninput=e=>{mq=e.target.value;const ps=e.target.selectionStart;vMrc();const n=$('#mqi');if(n){n.focus();try{n.setSelectionRange(ps,ps)}catch(_){}}};($('#mCopy')||{}).onclick=async()=>{const R=mrRegRows(),t=R.map(r=>[r.no,fd(r.date),r.flat,r.desc,r.total].join('\t')).join('\n');try{await navigator.clipboard.writeText(t);toast(R.length+' receipts copied — paste in Excel (Ctrl+V)')}catch(_){toast('Your browser blocked copying — use Export Excel')}}}
  const M=$('#main');if(!M._mrcL){M._mrcL=1;M.addEventListener('click',e=>{if(tab!=='mrc')return;const b=e.target.closest('[data-mrd]');if(b){const r=(S.mrcpts||[]).find(x=>x.id===b.dataset.mrd);if(r)mrDocx(r)}const bp=e.target.closest('[data-mrp]');if(bp){const r=(S.mrcpts||[]).find(x=>x.id===bp.dataset.mrp);if(r)mrPDF(r)}})}}
 /* Import the office Maintenance Trial Balance Excel: adds missing lines, fixes changed dates, never duplicates or deletes */
 function mtCat(d){d=String(d||'').toLowerCase();return /flat maintenance|general maintenance|office maintenance/.test(d)?'Maintenance – General':/utility|electric|water bill/.test(d)?'Utilities (Electricity & Water)':/air condition/.test(d)?'AC / HVAC':/elev|lift/.test(d)?'Lift / Elevator':/watchman/.test(d)?'Security / Watchman':/fire/.test(d)?'Fire Safety':/tawthiq/.test(d)?'Government Fees (Tawtheeq / Municipality)':'Other'}
@@ -3223,7 +3223,7 @@ function mtImport(file){const pid=S.cur,p=prop(),rd=new FileReader();rd.onload=(
   const sel=$('#miS',o);if(sel)sel.onchange=()=>{o.remove();show(sel.value)}};
  show(sheets[sheets.length-1])}catch(e){console.error(e);toast('Could not read this Excel')}};rd.readAsArrayBuffer(file)}
 function vExp(){
- $('#main').innerHTML=topbar('Maintenance & Expenses',`<button class="btn pri" id="eAdd">+ Add expense</button><button class="btn" id="eImp">Import Excel</button><button class="btn" id="eCopy">Copy for Excel</button><button class="btn" id="eExp">Export Excel</button>`)+`
+ $('#main').innerHTML=topbar('Maintenance & Expenses',`<button class="btn pri" id="eAdd">+ Add expense</button><button class="btn" id="eImp">Import Excel</button><button class="btn" id="eExp">Export Excel</button>`)+`
  <div class="bar"><input type="search" id="eqi" placeholder="Search unit, description, vendor, invoice…" value="${esc(eq)}"><select id="ecs" style="width:auto"><option value="">All categories</option><option value="__m" ${ec==='__m'?'selected':''}>All maintenance</option><option value="__o" ${ec==='__o'?'selected':''}>All other expenses</option>${EXP_CATS.map(c=>`<option ${c===ec?'selected':''}>${esc(c)}</option>`).join('')}</select>
   <div><label>From</label><input type="date" id="efi" value="${ef}" style="width:auto"></div><div><label>To</label><input type="date" id="eti" value="${et}" style="width:auto"></div></div>
  <div class="stats" id="eSum"></div><div class="tw"><table class="t" id="et"></table></div>`;
@@ -3234,7 +3234,7 @@ function vExp(){
    E.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.unit||'Building')}</td><td>${esc(e.category)}</td><td title="${esc(e.desc||e.xlDesc||'')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.desc||e.xlDesc||'')}</td><td>${esc(e.vendor)}</td><td>${esc(e.invNo)}</td><td class="r">${fa2(e.amount)}</td><td class="r">${+e.vat?fa2(e.vat):''}</td><td class="r"><b>${+e.credit?'+'+fa2(e.credit)+' <span class="tag grn">credit</span>':fa2(expTotal(e))}</b></td><td>${esc(e.paidBy)}${e.deductRC?' <span class="tag amb">in Rent Coll.</span>':''}</td><td>${esc(e.method)}</td><td><span class="tag ${e.status==='Paid'?'grn':'amb'}">${esc(e.status)}</span></td><td><button class="btn sm" data-ef="${e.id}">📎 ${(e.files||[]).length||'Add'}</button></td><td class="estk" style="white-space:nowrap"><button class="btn sm" data-ee="${e.id}">Edit</button> <button class="btn sm danger" data-ed="${e.id}">Delete</button></td></tr>`).join('')||'<tr><td colspan=14 class="hint">No expenses yet</td></tr>'};
  draw();
  $('#eqi').oninput=e=>{eq=e.target.value;draw()};$('#ecs').onchange=e=>{ec=e.target.value;draw()};$('#efi').onchange=e=>{ef=e.target.value;draw()};$('#eti').onchange=e=>{et=e.target.value;draw()};
- $('#eAdd').onclick=()=>expForm(null);$('#eExp').onclick=()=>exportExp(expList());$('#eCopy').onclick=()=>copyExp(expList());
+ $('#eAdd').onclick=()=>expForm(null);$('#eExp').onclick=()=>exportExp(expList());($('#eCopy')||{}).onclick=()=>copyExp(expList());
  $('#et').onclick=ev=>{const b=ev.target.closest('button');if(!b)return;const e=S.expenses.find(x=>x.id===(b.dataset.ee||b.dataset.ed||b.dataset.ef));if(!e)return;
   if(b.dataset.ee)expForm(e);else if(b.dataset.ed){if(confirm('Delete this expense?')){S.expenses=S.expenses.filter(x=>x.id!==e.id);S.stmt.entries=S.stmt.entries.filter(x=>x.expId!==e.id);(e.files||[]).forEach(f=>IDB.del(f.id).catch(()=>{}));save();render()}}
   else if(b.dataset.ef){const fake={no:'expense',propId:e.propId,get chqFiles(){return e.files||[]},set chqFiles(v){e.files=v}};rcptFiles(fake)}}}
