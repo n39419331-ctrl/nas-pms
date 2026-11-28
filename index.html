@@ -3886,14 +3886,16 @@ async function xlUpload(pid,k){if(!spOn())throw new Error('Connect to SharePoint
   if(res.status===423||res.status===409){XLX.last[pid+'|'+k]={t:new Date(),err:'file is open/locked in Excel'};toast(K[1]+' Excel "'+t.name+'" is open in Excel — it updates on the next change, or click Update now after closing it');return}
   if(res.status===404)xlSet(pid,k,null);else if(!res.ok)throw new Error('SharePoint '+res.status);else r=await res.json()}
  if(!r){const need=new Set(),path=await spResolve(spSegs({propId:pid,area:'excel'}),need);if(need.size)await spCreate(need);const nm=K[1]+' '+(p.short||p.no)+'.xlsx';r=await spPut(path,nm,blob);xlSet(pid,k,{id:r&&r.id,name:(r&&r.name)||spClean(nm),webUrl:r&&r.webUrl})}
- actLog(K[1]+' Excel updated in SharePoint ('+(xlGet(pid,k)||{}).name+')',pid);save()}
+ S.settings.xlDone=S.settings.xlDone||{};S.settings.xlDone[pid+'|'+k]=xlHash(pid,k);actLog(K[1]+' Excel updated in SharePoint ('+(xlGet(pid,k)||{}).name+')',pid);save()}
+/* remembers what was last written to SharePoint, so a file that is out of date (data or Excel layout changed since) is rewritten when the app opens */
+const XL_LAYOUT='2026-11-28';const xlHash=(pid,k)=>{const t=XL_LAYOUT+'|'+xlFp(pid,k);let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return (h>>>0).toString(36)+'.'+t.length};
 const pdcUpload=pid=>xlUpload(pid,'pdc');
 function xlCheck(){if(!XLX.ready)return;(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>{const key=p.id+'|'+k,f=xlFp(p.id,k);if(XLX.fp[key]!==f){XLX.fp[key]=f;if(xlAutoOn()&&spOn()&&xlGet(p.id,k))XLX.q.add(key)}}));
  if([...XLX.q].some(x=>x.startsWith(S.cur+'|'))){clearTimeout(XLX.timer);XLX.timer=setTimeout(xlRun,5000)}}
 async function xlRun(){if(XLX.busy){clearTimeout(XLX.timer);XLX.timer=setTimeout(xlRun,3000);return}XLX.busy=true;
  try{for(const key of [...XLX.q]){const [pid,k]=key.split('|');if(pid!==S.cur)continue;XLX.q.delete(key);try{await xlUpload(pid,k);XLX.last[key]={t:new Date()}}catch(e){console.error(e);XLX.last[key]={t:new Date(),err:e.message||'failed'};toast((XL_KINDS.find(x=>x[0]===k)||[,''])[1]+' Excel: '+(e.message||'upload failed'))}}}finally{XLX.busy=false}}
 (function xlHook(){const o=save;save=function(){const r=o.apply(this,arguments);try{xlCheck()}catch(e){console.error(e)}return r};
- setTimeout(()=>{try{(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>XLX.fp[p.id+'|'+k]=xlFp(p.id,k)))}catch(_){}XLX.ready=true},4500);
+ setTimeout(()=>{try{const D=(S.settings&&S.settings.xlDone)||{};(S.properties||[]).forEach(p=>XL_KINDS.forEach(([k])=>{const key=p.id+'|'+k;XLX.fp[key]=xlFp(p.id,k);if(xlAutoOn()&&xlGet(p.id,k)&&D[key]!==xlHash(p.id,k))XLX.q.add(key)}))}catch(_){}XLX.ready=true},4500);
  setInterval(()=>{if(XLX.ready&&!XLX.busy&&[...XLX.q].some(x=>x.startsWith(S.cur+'|'))&&spOn())xlRun()},8000)})();
 function xlCard(){const p=prop();return `<div class="card"><b>Excel files in SharePoint — ${esc(p.short||p.no)}</b><p class="hint" style="margin:6px 0">Connect your existing Excel files. Each connected Excel is rewritten by the app when its data changes (receipt, cheque, unit, maintenance…); nothing new is created in SharePoint. Older versions stay in the file's Version history.</p>
  <label style="display:flex;gap:6px;align-items:center;margin:6px 0"><input type="checkbox" style="width:auto" ${xlAutoOn()?'checked':''} onchange="S.settings.pdcAuto=this.checked;save()"> Update automatically</label>
